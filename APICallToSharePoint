@@ -1,0 +1,18 @@
+def get_sharepoint_sites(access_token):
+    url = "https://graph.microsoft.com/v1.0/sites"
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+# Example usage
+tenant_id = 'your_tenant_id'
+client_id = 'your_client_id'
+client_secret = 'your_client_secret'
+
+access_token = get_access_token(tenant_id, client_id, client_secret)
+sharepoint_sites = get_sharepoint_sites(access_token)
+
+print(sharepoint_sites)
