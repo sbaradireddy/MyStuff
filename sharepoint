@@ -25,3 +25,25 @@ else:
     print('Failed to obtain access token')
     print(token.get('error'))
     print(token.get('error_description'))
+import requests
+
+# Microsoft Graph API endpoint for SharePoint site
+site_url = "https://graph.microsoft.com/v1.0/sites/YOUR_SITE_ID"
+
+# Headers
+headers = {
+    'Authorization': f'Bearer {access_token}'
+}
+
+# Make a request to the site endpoint
+response = requests.get(site_url, headers=headers)
+
+if response.status_code == 200:
+    site_data = response.json()
+    print('Site data retrieved successfully')
+    print(site_data)
+else:
+    print('Failed to retrieve site data')
+    print(response.status_code)
+    print(response.text)
+
