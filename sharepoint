@@ -1,0 +1,27 @@
+import msal
+
+# Azure AD app details
+client_id = 'YOUR_CLIENT_ID'
+client_secret = 'YOUR_CLIENT_SECRET'
+tenant_id = 'YOUR_TENANT_ID'
+
+# Authority URL
+authority_url = f'https://login.microsoftonline.com/{tenant_id}'
+
+# Create a confidential client application
+app = msal.ConfidentialClientApplication(
+    client_id,
+    authority=authority_url,
+    client_credential=client_secret,
+)
+
+# Acquire token
+token = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+
+if 'access_token' in token:
+    access_token = token['access_token']
+    print('Access token obtained successfully')
+else:
+    print('Failed to obtain access token')
+    print(token.get('error'))
+    print(token.get('error_description'))
