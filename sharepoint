@@ -47,3 +47,21 @@ else:
     print(response.status_code)
     print(response.text)
 
+library_url = "https://graph.microsoft.com/v1.0/sites/YOUR_SITE_ID/lists/YOUR_LIBRARY_ID/items"
+
+response = requests.get(library_url, headers=headers)
+
+if response.status_code == 200:
+    library_data = response.json()
+    print('Library data retrieved successfully')
+    for item in library_data['value']:
+        print(item['name'])
+else:
+    print('Failed to retrieve library data')
+    print(response.status_code)
+    print(response.text)
+
+
+
+
+
