@@ -1,0 +1,60 @@
+import os
+import json
+import boto3
+import win32com.client
+
+# AWS Lambda configuration
+LAMBDA_FUNCTION_NAME = 'your-lambda-function-name'
+AWS_REGION = 'your-aws-region'
+
+# Local directory to temporarily store attachments
+ATTACHMENTS_DIR = 'C:/path/to/save/attachments'
+
+# Outlook configuration
+OUTLOOK_FOLDER = 'Inbox'  # Specify the Outlook folder to monitor
+
+# Initialize AWS Lambda client
+lambda_client = boto3.client('lambda', region_name=AWS_REGION)
+
+# Function to connect to Outlook and download attachments
+def download_outlook_attachments():
+    outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+    inbox = outlook.Folders.Item(1).Folders[OUTLOOK_FOLDER]
+    messages = inbox.Items
+
+    for message in messages:
+        if message.Attachments.Count > 0:
+            for attachment in message.Attachments:
+                # Save the attachment locally
+                file_path = os.path.join(ATTACHMENTS_DIR, attachment.FileName)
+                attachment.SaveAsFile(file_path)
+                print(f"Downloaded {attachment.FileName} to {ATTACHMENTS_DIR}")
+
+                # Invoke Lambda to upload the file to S3
+                invoke_lambda(file_path, attachment.FileName)
+
+                # Optionally, delete the local file after invoking Lambda
+                os.remove(file_path)
+
+# Function to invoke AWS Lambda
+def invoke_lambda(file_path, file_name):
+    with open(file_path, 'rb') as f:
+        file_content = f.read()
+
+    payload = {
+        'file_name': file_name,
+        'file_content': file_content.decode('latin1')  # Convert bytes to a string for JSON serialization
+    }
+
+    response = lambda_client.invoke(
+        FunctionName=LAMBDA_FUNCTION_NAME,
+        InvocationType='RequestResponse',
+        Payload=json.dumps(payload),
+    )
+
+    response_payload = json.loads(response['Payload'].read())
+    print(f"Lambda response: {response_payload}")
+
+# Main function
+if __name__ == "__main__":
+    download_outlook_attachments()
