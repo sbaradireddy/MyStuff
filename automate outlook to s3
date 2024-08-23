@@ -1,0 +1,120 @@
+To automate sending Outlook email attachments to AWS S3 without using Power Automate or AWS SES, you can use a combination of Microsoft Graph API (to access emails), AWS SDK (to upload to S3), and a script or serverless function to handle the automation.
+
+Steps:
+
+1. Set Up an Azure App Registration
+
+	•	Go to the Azure Portal.
+	•	Navigate to Azure Active Directory > App registrations > New registration.
+	•	Register an application:
+	•	Name: Your app’s name.
+	•	Supported account types: Choose based on your organization’s needs.
+	•	Redirect URI: You can leave this blank if using a console app.
+	•	After registration, note the Client ID and Tenant ID.
+
+2. Configure API Permissions
+
+	•	In the App Registration, go to API permissions > Add a permission.
+	•	Select Microsoft Graph > Delegated permissions.
+	•	Add the following permissions:
+	•	Mail.Read
+	•	Mail.ReadWrite
+	•	Grant admin consent for your organization.
+
+3. Create a Client Secret
+
+	•	Go to Certificates & secrets in your App Registration.
+	•	Create a new client secret and note the secret value.
+
+4. Create a Script to Access Emails and Upload to S3
+
+	•	Use a language like Python, Node.js, or any other that can interact with the Microsoft Graph API and AWS SDK.
+
+Python Example:
+
+	1.	Install Required Libraries:
+
+pip install msal boto3 requests
+
+
+	2.	Python Script:
+
+import msal
+import requests
+import boto3
+import os
+
+# Azure AD App details
+CLIENT_ID = 'your-client-id'
+CLIENT_SECRET = 'your-client-secret'
+TENANT_ID = 'your-tenant-id'
+
+# AWS details
+S3_BUCKET = 'your-s3-bucket'
+
+# Set up MSAL
+authority = f'https://login.microsoftonline.com/{TENANT_ID}'
+app = msal.ConfidentialClientApplication(CLIENT_ID, authority=authority, client_credential=CLIENT_SECRET)
+scopes = ['https://graph.microsoft.com/.default']
+
+# Authenticate and get token
+result = app.acquire_token_for_client(scopes=scopes)
+access_token = result['access_token']
+
+# Microsoft Graph API endpoint to read emails
+graph_url = 'https://graph.microsoft.com/v1.0/me/messages'
+headers = {'Authorization': f'Bearer {access_token}'}
+
+# Retrieve emails
+response = requests.get(graph_url, headers=headers)
+emails = response.json()
+
+s3 = boto3.client('s3')
+
+for email in emails['value']:
+    if 'attachments' in email:
+        for attachment in email['attachments']:
+            attachment_content = base64.b64decode(attachment['contentBytes'])
+            file_name = attachment['name']
+
+            # Upload attachment to S3
+            s3.put_object(
+                Bucket=S3_BUCKET,
+                Key=file_name,
+                Body=attachment_content
+            )
+
+            print(f'Uploaded {file_name} to S3')
+
+Explanation:
+	•	MSAL: Used for authentication with Azure AD to access the Microsoft Graph API.
+	•	Boto3: AWS SDK for Python to interact with S3.
+	•	The script retrieves emails using the Microsoft Graph API and checks for attachments. It then uploads those attachments to the specified S3 bucket.
+
+5. Run the Script on a Schedule
+
+	•	You can schedule this script to run at regular intervals using a task scheduler like cron (Linux) or Task Scheduler (Windows), or even run it on a serverless platform like AWS Lambda with a CloudWatch Event.
+	•	Example (Linux cron job):
+	•	Open the crontab editor:
+
+crontab -e
+
+
+	•	Add a line to run the script every hour:
+
+0 * * * * /usr/bin/python3 /path/to/your/script.py
+
+
+
+6. Monitor and Handle Errors
+
+	•	Implement logging within your script to monitor the process.
+	•	Handle errors like expired tokens, network issues, etc., and ensure your script can handle such situations gracefully.
+
+Benefits:
+
+	•	Customization: Full control over how and when emails are processed and uploaded to S3.
+	•	No Additional Services: No dependency on Power Automate or AWS SES.
+	•	Scalability: You can run this script on a serverless function or as a part of a larger workflow.
+
+This approach allows for flexibility and customization, but it does require more setup and maintenance than using out-of-the-box services like Power Automate. If you prefer, I can help with code adjustments or further integration ideas.
