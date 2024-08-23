@@ -1,0 +1,46 @@
+import msal
+import requests
+import boto3
+import os
+
+# Azure AD App details
+CLIENT_ID = 'your-client-id'
+CLIENT_SECRET = 'your-client-secret'
+TENANT_ID = 'your-tenant-id'
+
+# AWS details
+S3_BUCKET = 'your-s3-bucket'
+
+# Set up MSAL
+authority = f'https://login.microsoftonline.com/{TENANT_ID}'
+app = msal.ConfidentialClientApplication(CLIENT_ID, authority=authority, client_credential=CLIENT_SECRET)
+scopes = ['https://graph.microsoft.com/.default']
+
+# Authenticate and get token
+result = app.acquire_token_for_client(scopes=scopes)
+access_token = result['access_token']
+
+# Microsoft Graph API endpoint to read emails
+graph_url = 'https://graph.microsoft.com/v1.0/me/messages'
+headers = {'Authorization': f'Bearer {access_token}'}
+
+# Retrieve emails
+response = requests.get(graph_url, headers=headers)
+emails = response.json()
+
+s3 = boto3.client('s3')
+
+for email in emails['value']:
+    if 'attachments' in email:
+        for attachment in email['attachments']:
+            attachment_content = base64.b64decode(attachment['contentBytes'])
+            file_name = attachment['name']
+
+            # Upload attachment to S3
+            s3.put_object(
+                Bucket=S3_BUCKET,
+                Key=file_name,
+                Body=attachment_content
+            )
+
+            print(f'Uploaded {file_name} to S3')
