@@ -1,0 +1,50 @@
+import requests
+import boto3
+import io
+
+# Constants for Microsoft Graph API and AWS S3
+access_token = "YOUR_ACCESS_TOKEN"
+s3_bucket_name = "your-s3-bucket-name"
+s3_file_name = "email_content.txt"
+
+# Headers with access token
+headers = {
+    'Authorization': f'Bearer {access_token}'
+}
+
+# Fetch the latest email with body content and subject
+url = 'https://graph.microsoft.com/v1.0/me/messages?$orderby=receivedDateTime desc&$top=1&$select=subject,body'
+response = requests.get(url, headers=headers)
+email_data = response.json().get('value', [])
+
+if email_data:
+    latest_email = email_data[0]
+    subject = latest_email['subject']
+    body = latest_email['body']['content']
+    
+    print(f"Subject: {subject}")
+    print(f"Body: {body}")
+    
+    # Create content to upload
+    email_content = f"Subject: {subject}\n\nBody:\n{body}"
+else:
+    print("No emails found.")
+    email_content = None
+
+# Initialize the S3 client
+s3 = boto3.client('s3')
+
+# Function to upload content to S3
+def upload_to_s3(bucket_name, file_name, content):
+    # Convert string to file-like object
+    content_bytes = io.BytesIO(content.encode('utf-8'))
+    
+    # Upload the content to S3
+    s3.upload_fileobj(content_bytes, bucket_name, file_name)
+    print(f"Uploaded file '{file_name}' to bucket '{bucket_name}'")
+
+# Upload to S3 if email content is available
+if email_content:
+    upload_to_s3(s3_bucket_name, s3_file_name, email_content)
+else:
+    print("No content to upload.")
