@@ -145,4 +145,22 @@ USER jenkins
 
 ### Conclusion
 
+pipeline {
+    agent any
+    stages {
+        stage('Install Python and AWS CLI') {
+            steps {
+                script {
+                    // Switch to root and install Python and AWS CLI
+                    sh '''
+                        apt-get update
+                        apt-get install -y python3 python3-pip
+                        pip3 install --user awscli
+                    '''
+                }
+            }
+        }
+    }
+}
+
 Now you have AWS CLI, Terraform, and Python installed in your Jenkins Docker container. You can build a custom image to ensure your configurations are persistent. If you have further questions or run into issues, feel free to ask!
