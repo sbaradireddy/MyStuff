@@ -1,0 +1,148 @@
+To install AWS CLI, Terraform, and Python in a Jenkins Docker container running on AWS ECS with an EC2 instance, you can follow these steps:
+
+### Step 1: Access the Jenkins Docker Container
+
+1. **Connect to Your EC2 Instance**:
+   Use SSH to connect to the EC2 instance where your Jenkins Docker container is running.
+
+   ```bash
+   ssh -i your-key.pem ec2-user@your-ec2-instance-ip
+   ```
+
+2. **Find the Jenkins Container**:
+   List running Docker containers to find your Jenkins container name or ID:
+
+   ```bash
+   docker ps
+   ```
+
+3. **Access the Jenkins Container**:
+   Use `docker exec` to open a shell in the Jenkins container. You'll need to run this as the root user:
+
+   ```bash
+   docker exec -it --user root <jenkins-container-id-or-name> /bin/bash
+   ```
+
+### Step 2: Install Dependencies
+
+Once inside the container, you can install the necessary tools.
+
+1. **Update Package Lists**:
+   Start by updating the package lists:
+
+   ```bash
+   apt-get update
+   ```
+
+   If you encounter a permissions error, ensure you are in the root user context.
+
+2. **Install Python and pip**:
+
+   ```bash
+   apt-get install -y python3 python3-pip
+   ```
+
+3. **Install AWS CLI**:
+
+   ```bash
+   pip3 install awscli --upgrade --user
+   ```
+
+4. **Install Unzip and Wget** (needed for Terraform):
+
+   ```bash
+   apt-get install -y unzip wget
+   ```
+
+5. **Install Terraform**:
+
+   Replace `1.5.0` with the latest version if needed:
+
+   ```bash
+   wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip
+   unzip terraform_1.5.0_linux_amd64.zip
+   mv terraform /usr/local/bin/
+   chmod +x /usr/local/bin/terraform
+   ```
+
+### Step 3: Verify the Installations
+
+1. **Check AWS CLI**:
+
+   ```bash
+   aws --version
+   ```
+
+2. **Check Terraform**:
+
+   ```bash
+   terraform --version
+   ```
+
+3. **Check Python**:
+
+   ```bash
+   python3 --version
+   pip3 --version
+   ```
+
+### Step 4: Exit the Container
+
+Once you have installed everything, exit the container shell:
+
+```bash
+exit
+```
+
+### Step 5: (Optional) Persist Changes
+
+To ensure that your installations persist even after the container is stopped and started, consider creating a custom Docker image. Here’s how to create a `Dockerfile`:
+
+```Dockerfile
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Install necessary packages
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip unzip wget && \
+    pip3 install awscli --upgrade --user && \
+    wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip && \
+    unzip terraform_1.5.0_linux_amd64.zip && \
+    mv terraform /usr/local/bin/ && \
+    chmod +x /usr/local/bin/terraform
+
+# Switch back to the Jenkins user
+USER jenkins
+```
+
+### Step 6: Build and Run Your Custom Image
+
+1. **Create the Dockerfile** in your working directory on the EC2 instance:
+
+   ```bash
+   nano Dockerfile
+   ```
+
+   Copy the above `Dockerfile` content into the editor and save it.
+
+2. **Build the Docker Image**:
+
+   ```bash
+   docker build -t my-jenkins-image .
+   ```
+
+3. **Run the Custom Image**:
+
+   ```bash
+   docker run -d \
+     -p 8080:8080 \
+     -p 50000:50000 \
+     -v jenkins_home:/var/jenkins_home \
+     --name jenkins \
+     my-jenkins-image
+   ```
+
+### Conclusion
+
+Now you have AWS CLI, Terraform, and Python installed in your Jenkins Docker container. You can build a custom image to ensure your configurations are persistent. If you have further questions or run into issues, feel free to ask!
