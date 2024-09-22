@@ -35,4 +35,45 @@ docker run -d \
   --name jenkins \
   --user root \
   jenkins/jenkins:lts
+#####
+docker exec -it jenkins /bin/bash
+##########
+apt-get update
+apt-get install -y docker.io python3-pip unzip wget
+pip3 install awscli --upgrade --user
+
+##############
+wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip
+unzip terraform_1.5.0_linux_amd64.zip
+mv terraform /usr/local/bin/
+chmod +x /usr/local/bin/terraform
+#############
+exit
+############
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Install necessary packages
+RUN apt-get update && \
+    apt-get install -y docker.io python3-pip unzip wget && \
+    pip3 install awscli --upgrade --user
+
+# Install Terraform
+RUN wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip && \
+    unzip terraform_1.5.0_linux_amd64.zip && \
+    mv terraform /usr/local/bin/ && \
+    chmod +x /usr/local/bin/terraform
+
+# Switch back to the Jenkins user
+USER jenkins
+##########
+docker build -t my-jenkins-image .
+###########
+docker run -d \
+  -p 8080:8080 \
+  -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  --name jenkins \
+  my-jenkins-image
 
