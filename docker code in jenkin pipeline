@@ -1,0 +1,28 @@
+pipeline {
+    agent {
+        docker { 
+            image 'node:14' // Specify the Docker image you want to use
+            args '-v /var/run/docker.sock:/var/run/docker.sock' // Mount Docker socket if needed
+        }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                // Commands to run in the Docker container
+                sh 'npm install'
+            }
+        }
+        stage('Test') {
+            steps {
+                // Run tests in the same container
+                sh 'npm test'
+            }
+        }
+    }
+    post {
+        always {
+            // Archive test results, etc.
+            echo 'Cleaning up...'
+        }
+    }
+}
