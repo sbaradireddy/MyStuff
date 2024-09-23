@@ -143,3 +143,7 @@ USER jenkins
 
 # Default command
 CMD ["bash"]
+
+##########################
+ERROR: failed to solve: process "/bin/sh -c yum update -y &&     yum install -y     curl     unzip     python3     python3-pip" did not complete successfully: exit code: 127
+
