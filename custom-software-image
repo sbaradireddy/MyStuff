@@ -1,61 +1,57 @@
+Steps:
+Start with the AWS ECS Jenkins base image: This is the base image provided by AWS to run Jenkins on ECS.
+Install Python 3, AWS CLI, Docker CLI, and Terraform.
+Add any additional configurations you need.
 Sample Dockerfile
 Dockerfile
 Copy code
-# Use a base image with Python 3 installed
-FROM python:3.9-slim
+# Start with the official AWS ECS Jenkins base image
+FROM amazon/amazon-ecs-jenkins:latest
 
-# Install dependencies for Docker and Terraform
-RUN apt-get update && \
-    apt-get install -y \
+# Install dependencies
+RUN yum update -y && \
+    yum install -y \
+    python3 \
     curl \
-    gnupg \
-    lsb-release \
     unzip \
-    apt-transport-https \
-    ca-certificates \
-    software-properties-common \
-    build-essential
+    tar \
+    yum-utils \
+    device-mapper-persistent-data \
+    lvm2
 
 # Install AWS CLI
-RUN pip install awscli --upgrade
+RUN pip3 install --upgrade awscli
 
 # Install Terraform
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
-    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
-    apt-get update && \
-    apt-get install terraform
+RUN curl -fsSL https://releases.hashicorp.com/terraform/1.5.3/terraform_1.5.3_linux_amd64.zip -o terraform.zip && \
+    unzip terraform.zip && \
+    mv terraform /usr/local/bin/ && \
+    rm terraform.zip
 
 # Install Docker CLI
-RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
-    apt-add-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
-    apt-get update && \
-    apt-get install -y docker-ce-cli
+RUN amazon-linux-extras install docker && \
+    service docker start
 
 # Clean up
-RUN apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN yum clean all && rm -rf /var/cache/yum
 
-# Set environment variables (optional)
-ENV PATH="/root/.local/bin:$PATH"
-
-# Default command
+# Set default command
 CMD ["bash"]
-Steps to Build the Docker Image
-Create a directory and navigate into it:
+Explanation:
+Base image: amazon/amazon-ecs-jenkins:latest is the AWS ECS Jenkins image.
+Installing Python 3: The python3 package is installed through the AWS Amazon Linux package manager yum.
+Installing AWS CLI: The AWS CLI is installed using Python's pip3.
+Installing Terraform: The latest Terraform binary is downloaded, unzipped, and moved to /usr/local/bin.
+Installing Docker CLI: amazon-linux-extras is used to install Docker from Amazon Linux repositories.
+Build and Run
+Build the Docker image:
 
 bash
 Copy code
-mkdir aws-python-docker-terraform && cd aws-python-docker-terraform
-Create the Dockerfile and paste the contents above into it.
-
-Build the Docker image using Docker:
-
-bash
-Copy code
-docker build -t aws-python-docker-terraform .
+docker build -t ecs-jenkins-python-terraform-aws-docker .
 Run the Docker container:
 
 bash
 Copy code
-docker run -it aws-python-docker-terraform
-This will create a custom Docker image that includes AWS CLI, Python 3, Docker CLI (client), and Terraform. Note that the Docker daemon is not installed inside the container, as Docker-in-Docker (DinD) setups typically require additional configurations if needed.
+docker run -it ecs-jenkins-python-terraform-aws-docker
+This setup will create an extended ECS Jenkins image that has Python 3, AWS CLI, Terraform, and Docker installed. You can now use this image in your ECS Jenkins environment.
