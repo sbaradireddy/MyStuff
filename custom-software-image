@@ -6,7 +6,7 @@ Sample Dockerfile
 Dockerfile
 Copy code
 # Start with the official AWS ECS Jenkins base image
-FROM amazon/amazon-ecs-jenkins:latest
+FROM 056156273734.dkr.ecr.us-east-1.amazonaws.com/prc-home-ds-jenkins:latest
 
 # Install dependencies
 RUN yum update -y && \
