@@ -1,0 +1,120 @@
+. Launch an Amazon Linux 2 Instance
+Go to the EC2 Dashboard on AWS and launch a new Amazon Linux 2 (Karoo) instance.
+Connect to your instance via SSH.
+2. Create a Dockerfile
+If you're using Docker on your Amazon Linux 2 instance to containerize the tools, create a Dockerfile that installs Python 3, Docker, Terraform, and AWS CLI.
+
+Here's the Dockerfile to create the environment:
+
+Dockerfile
+Copy code
+# Use Amazon Linux 2 as the base image
+FROM amazonlinux:2
+
+# Update the package manager and install required packages
+RUN yum update -y && \
+    yum install -y \
+    python3 \
+    python3-pip \
+    unzip \
+    curl \
+    sudo
+
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws
+
+# Install Docker
+RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
+    sh get-docker.sh && \
+    rm get-docker.sh
+
+# Install Terraform
+RUN yum install -y yum-utils && \
+    yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo && \
+    yum -y install terraform
+
+# Add the docker group to the current user (optional)
+RUN usermod -aG docker ec2-user
+
+# Expose Docker daemon port (optional, if needed for access)
+EXPOSE 2375
+
+# Set default command to Bash
+CMD ["/bin/bash"]
+3. Build and Run the Docker Image
+Install Docker on Amazon Linux 2 (Host Machine):
+
+bash
+Copy code
+sudo amazon-linux-extras install docker
+sudo service docker start
+sudo usermod -a -G docker ec2-user  # Allow non-root user to run Docker
+Log out and log back in to apply the Docker group changes.
+
+Create the Dockerfile on your Amazon Linux 2 instance:
+
+bash
+Copy code
+nano Dockerfile
+Copy and paste the contents of the Dockerfile above into it.
+
+Build the Docker image:
+
+bash
+Copy code
+docker build -t custom-environment:latest .
+Run the Docker container:
+
+bash
+Copy code
+docker run -it custom-environment:latest
+This container will have Python 3, Docker, Terraform, and the AWS CLI installed. You can use it as your working environment or further customize it for your use case.
+
+4. Verify Installation
+Once inside the container, verify the installation of each tool:
+
+Python:
+
+bash
+Copy code
+python3 --version
+AWS CLI:
+
+bash
+Copy code
+aws --version
+Docker:
+
+bash
+Copy code
+docker --version
+Terraform:
+
+bash
+Copy code
+terraform --version
+5. Optional: Push Docker Image to a Container Registry
+If you need to run this setup on other machines, push the Docker image to a container registry like Amazon ECR or Docker Hub.
+
+bash
+Copy code
+# Tag and push to Docker Hub or Amazon ECR
+docker tag custom-environment:latest <your-repo-uri>:latest
+docker push <your-repo-uri>:latest
+You can then pull and run the image on any other instance that supports Docker.
+
+This approach allows you to easily containerize the tools on Amazon Linux 2 and reuse the setup across environments.
+
+
+
+
+
+
+
+
+
+
+ChatGPT can make mistakes. Check important info.
