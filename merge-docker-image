@@ -188,6 +188,20 @@ USER jenkins
 # Default command
 CMD ["bash"]
 
+####################333
+NAME="Amazon Linux"
+VERSION="2"
+ID="amzn"
+ID_LIKE="centos rhel fedora"
+VERSION_ID="2"
+PRETTY_NAME="Amazon Linux 2"
+ANSI_COLOR="0;33"
+CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
+HOME_URL="https://amazonlinux.com/"
+SUPPORT_END="2025-06-30"
+Amazon Linux release 2 (Karoo)
+
+
 ###################33333333333
 ERROR: failed to solve: process "/bin/sh -c curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - &&     apt-add-repository \"deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main\" &&     apt-get update &&     apt-get install -y terraform" did not complete successfully: exit code: 127
 
