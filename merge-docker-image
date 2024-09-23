@@ -1,0 +1,102 @@
+To merge your Jenkins Docker image with a custom Docker image, you can create a new Dockerfile that uses your Jenkins image as a base and then adds your customizations. Here’s a step-by-step guide:
+
+### Step 1: Prepare Your Environment
+
+1. **Create a directory for your new Dockerfile**:
+   ```bash
+   mkdir jenkins-custom-merge
+   cd jenkins-custom-merge
+   ```
+
+2. **Create a Dockerfile**:
+   ```bash
+   touch Dockerfile
+   ```
+
+### Step 2: Edit the Dockerfile
+
+Open the Dockerfile in a text editor and define the base image and any additional software or configurations you want to include. Here’s an example:
+
+```dockerfile
+# Use the existing Jenkins image as the base
+FROM jenkins/jenkins:lts
+
+# Switch to root to install additional software
+USER root
+
+# Install any additional software (example: AWS CLI, Docker, Python, Terraform)
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    python3 \
+    python3-pip \
+    && curl "https://d1wni9e1w1i8g9.cloudfront.net/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && unzip awscliv2.zip \
+    && sudo ./aws/install \
+    && rm awscliv2.zip \
+    && curl -fsSL https://get.docker.com -o get-docker.sh \
+    && sh get-docker.sh \
+    && curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - \
+    && echo "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
+    && apt-get update && apt-get install terraform \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch back to Jenkins user
+USER jenkins
+
+# Set the default command (optional)
+CMD ["jenkins"]
+```
+
+### Step 3: Build the Merged Docker Image
+
+1. **Build the Docker image**:
+   Make sure you are in the directory where your Dockerfile is located:
+   ```bash
+   docker build -t my-jenkins-custom-image .
+   ```
+
+### Step 4: Run the Merged Docker Image
+
+1. **Run your new container**:
+   ```bash
+   docker run -d -p 8080:8080 -p 50000:50000 --name my-jenkins-container my-jenkins-custom-image
+   ```
+
+### Step 5: Verify the Installation
+
+1. **Access Jenkins**:
+   Open your web browser and go to `http://<your-docker-host-ip>:8080`.
+
+2. **Check installed software**:
+   You can open a terminal in the running Jenkins container and verify the installations:
+   ```bash
+   docker exec -it my-jenkins-container bash
+   aws --version
+   docker --version
+   python3 --version
+   terraform --version
+   ```
+
+### Step 6: (Optional) Push the Merged Image to a Registry
+
+If you want to use the merged image elsewhere (like in AWS ECR), you can push it:
+
+1. **Tag the image**:
+   ```bash
+   docker tag my-jenkins-custom-image:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/my-jenkins-custom-image:latest
+   ```
+
+2. **Login to ECR (or another registry)**:
+   ```bash
+   aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
+   ```
+
+3. **Push the image**:
+   ```bash
+   docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/my-jenkins-custom-image:latest
+   ```
+
+### Conclusion
+
+You’ve successfully merged your Jenkins Docker image with your custom software. This new image can be used in various environments and deployments, making it flexible for your needs. Adjust the Dockerfile as necessary for any additional software or configurations!
