@@ -1,0 +1,61 @@
+Sample Dockerfile
+Dockerfile
+Copy code
+# Use a base image with Python 3 installed
+FROM python:3.9-slim
+
+# Install dependencies for Docker and Terraform
+RUN apt-get update && \
+    apt-get install -y \
+    curl \
+    gnupg \
+    lsb-release \
+    unzip \
+    apt-transport-https \
+    ca-certificates \
+    software-properties-common \
+    build-essential
+
+# Install AWS CLI
+RUN pip install awscli --upgrade
+
+# Install Terraform
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
+    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
+    apt-get update && \
+    apt-get install terraform
+
+# Install Docker CLI
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
+    apt-add-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli
+
+# Clean up
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set environment variables (optional)
+ENV PATH="/root/.local/bin:$PATH"
+
+# Default command
+CMD ["bash"]
+Steps to Build the Docker Image
+Create a directory and navigate into it:
+
+bash
+Copy code
+mkdir aws-python-docker-terraform && cd aws-python-docker-terraform
+Create the Dockerfile and paste the contents above into it.
+
+Build the Docker image using Docker:
+
+bash
+Copy code
+docker build -t aws-python-docker-terraform .
+Run the Docker container:
+
+bash
+Copy code
+docker run -it aws-python-docker-terraform
+This will create a custom Docker image that includes AWS CLI, Python 3, Docker CLI (client), and Terraform. Note that the Docker daemon is not installed inside the container, as Docker-in-Docker (DinD) setups typically require additional configurations if needed.
