@@ -19,6 +19,7 @@ Open the Dockerfile in a text editor and define the base image and any additiona
 
 ```dockerfile
 # Use the existing Jenkins image as the base
+FROM your-account-id.dkr.ecr.your-region.amazonaws.com/your-repository:your-tag
 #FROM jenkins/jenkins:lts
 aws ecr get-login-password --region your-region | docker login --username AWS --password-stdin your-account-id.dkr.ecr.your-region.amazonaws.com
 
