@@ -267,3 +267,31 @@ denied: User: arn:aws:iam::056156273734:user/sbaradi is not authorized to perfor
     }
   ]
 }
+
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Check Terraform Installation') {
+            steps {
+                script {
+                    def terraformInstalled = sh (
+                        script: 'which terraform',
+                        returnStatus: true
+                    )
+                    
+                    if (terraformInstalled == 0) {
+                        echo "Terraform is installed."
+                        sh 'terraform --version'
+                    } else {
+                        echo "Terraform is NOT installed."
+                        error("Please install Terraform before running this pipeline.")
+                    }
+                }
+            }
+        }
+    }
+}
+
+
