@@ -245,4 +245,25 @@ USER jenkins
 CMD ["bash"]
 ####################
 denied: User: arn:aws:iam::056156273734:user/sbaradi is not authorized to perform: ecr:InitiateLayerUpload on resource: arn:aws:ecr:us-east-1:056156273734:repository/prc-home-ds-jenkins because no identity-based policy allows the ecr:InitiateLayerUpload action
-
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:CompleteLayerUpload",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:PutImage"
+      ],
+      "Resource": "arn:aws:ecr:us-east-1:056156273734:repository/prc-home-ds-jenkins"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    }
+  ]
+}
