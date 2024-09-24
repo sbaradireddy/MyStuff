@@ -295,3 +295,50 @@ pipeline {
 }
 
 
+
+pipeline {
+    agent any
+
+    environment {
+        TERRAFORM_VERSION = "1.5.0"
+        TERRAFORM_DIR = "/usr/local/bin"
+    }
+
+    stages {
+        stage('Check and Install Terraform') {
+            steps {
+                script {
+                    def terraformInstalled = sh (
+                        script: 'terraform --version',
+                        returnStatus: true
+                    )
+                    
+                    if (terraformInstalled != 0) {
+                        echo "Terraform not found, installing it now..."
+                        sh """
+                        curl -fsSL https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip
+                        unzip terraform.zip
+                        sudo mv terraform /usr/local/bin/
+                        rm terraform.zip
+                        """
+                    } else {
+                        echo "Terraform is already installed."
+                    }
+                    
+                    // Verify Installation
+                    sh 'terraform --version'
+                }
+            }
+        }
+        
+        stage('Use Terraform') {
+            steps {
+                // You can now use Terraform in this stage
+                sh 'terraform version'
+            }
+        }
+    }
+}
+
+
+
