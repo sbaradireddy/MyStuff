@@ -130,3 +130,5 @@ This setup will create a Jenkins container that has Python 3, Docker, Terraform,
 
 
 ChatGPT can make mistakes. Check important info.
+#####################################
+denied: User: arn:aws:sts::056156273734:assumed-role/ecsInstanceRole/i-0b3366c328771c249 is not authorized to perform: ecr:InitiateLayerUpload on resource: arn:aws:ecr:us-east-1:056156273734:repository/prc-home-ds-jenkins because no identity-based policy allows the ecr:InitiateLayerUpload action
