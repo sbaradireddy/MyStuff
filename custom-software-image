@@ -131,7 +131,8 @@ This allows Jenkins to interact with Docker running on the host EC2 instance.
 Conclusion
 You now have a Jenkins container running on AWS ECS with Python 3, AWS CLI, Docker, and Terraform installed. By creating a custom Docker image and using it in your ECS task definition, Jenkins is ready to perform various CI/CD tasks, including managing infrastructure, interacting with AWS services, and building Docker images.
 
-
+################################
+Caused: java.io.IOException: Cannot run program "/usr/local/bin" (in directory "/var/jenkins_home/workspace/demo"): error=13, Permission denied
 
 
 
