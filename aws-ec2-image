@@ -116,5 +116,5 @@ This approach allows you to easily containerize the tools on Amazon Linux 2 and 
 
 
 
+ERROR: failed to solve: process "/bin/sh -c yum update -y &&     yum install -y     python3     python3-pip     unzip     curl     sudo" did not complete successfully: exit code: 127
 
-ChatGPT can make mistakes. Check important info.
