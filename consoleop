@@ -1,3 +1,7 @@
+
+
+
+
 Started by user PRC-HOME-ADMIN
 Running as SYSTEM
 Building in workspace /var/jenkins_home/workspace/terraform-test
@@ -142,4 +146,22 @@ pipeline {
         }
     }
 }
+
+
+
+
+
+pipeline {
+    agent {
+        docker { image 'hashicorp/terraform:1.5.7' }
+    }
+    stages {
+        stage('Verify Terraform') {
+            steps {
+                sh 'terraform --version'
+            }
+        }
+    }
+}
+
 
