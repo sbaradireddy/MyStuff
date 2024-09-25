@@ -88,3 +88,31 @@ pipeline {
     }
 }
 
+
+
+
+Started by user PRC-HOME-ADMIN
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins in /var/jenkins_home/workspace/terraform
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Install Terraform)
+[Pipeline] sh
++ curl -o terraform.zip https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+100 20.0M  100 20.0M    0     0  47.8M      0 --:--:-- --:--:-- --:--:-- 47.8M
++ unzip terraform.zip
+Archive:  terraform.zip
+replace terraform? [y]es, [n]o, [A]ll, [N]one, [r]ename:  NULL
+(EOF or read error, treating as "[N]one" ...)
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 1
+Finished: FAILURE
