@@ -1,0 +1,26 @@
+Started by user PRC-HOME-ADMIN
+Running as SYSTEM
+Building in workspace /var/jenkins_home/workspace/terraform-test
+Unpacking https://releases.hashicorp.com/terraform/1.10.0-alpha20240918/terraform_1.10.0-alpha20240918_linux_arm64.zip to /var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform on Jenkins
+[terraform-plugin] $ /var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform get
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: _�: not found
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: ELF�Љ@�@8@
+@@@PP���ddD�TD�TUVVԈԈ���: not found
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: �: not found
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: : not found
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: cannot open ������ߔ�g@���㑛��: No such file
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: Ӏhb���A@��������_�����#��: not found
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: ��������ߔK���@����ߔ�@��@���T�ߔR���ߔ������_�����g���@�����@��c0�IT������#�_: not found
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: �����9Ѐ?���!��z��: not found
+/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 3: Syntax error: "(" unexpected
+FATAL: java.lang.Exception: Terraform Get failed: 2
+	at PluginClassLoader for terraform//org.jenkinsci.plugins.terraform.TerraformBuildWrapper.executeGet(TerraformBuildWrapper.java:224)
+	at PluginClassLoader for terraform//org.jenkinsci.plugins.terraform.TerraformBuildWrapper.setUp(TerraformBuildWrapper.java:256)
+	at hudson.model.Build$BuildExecution.doRun(Build.java:158)
+	at hudson.model.AbstractBuild$AbstractBuildExecution.run(AbstractBuild.java:526)
+	at hudson.model.Run.execute(Run.java:1894)
+	at hudson.model.FreeStyleBuild.run(FreeStyleBuild.java:44)
+	at hudson.model.ResourceController.execute(ResourceController.java:101)
+	at hudson.model.Executor.run(Executor.java:446)
+
+Finished: FAILURE
