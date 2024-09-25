@@ -1,4 +1,32 @@
 
+pipeline {
+    agent any
+    environment {
+        PATH = "$WORKSPACE:$PATH"
+    }
+    stages {
+        stage('Install Terraform') {
+            steps {
+                sh '''
+                # Download Terraform
+                curl -o terraform.zip https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+                
+                # Unzip the binary and force overwrite if necessary
+                unzip -o terraform.zip
+                
+                # Move the binary to the current workspace or a user-writable directory
+                mv terraform $WORKSPACE/
+                
+                # Verify installation
+                terraform version
+                '''
+            }
+        }
+    }
+}
+
+
+
 
 
 
