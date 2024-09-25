@@ -1,20 +1,16 @@
 Started by user PRC-HOME-ADMIN
 Running as SYSTEM
 Building in workspace /var/jenkins_home/workspace/terraform-test
-Unpacking https://releases.hashicorp.com/terraform/1.10.0-alpha20240918/terraform_1.10.0-alpha20240918_linux_arm64.zip to /var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform on Jenkins
-[terraform-plugin] $ /var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform get
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: _�: not found
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: ELF�Љ@�@8@
-@@@PP���ddD�TD�TUVVԈԈ���: not found
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: �: not found
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: : not found
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 1: cannot open ������ߔ�g@���㑛��: No such file
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: Ӏhb���A@��������_�����#��: not found
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: ��������ߔK���@����ߔ�@��@���T�ߔR���ߔ������_�����g���@�����@��c0�IT������#�_: not found
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 2: �����9Ѐ?���!��z��: not found
-/var/jenkins_home/tools/org.jenkinsci.plugins.terraform.TerraformInstallation/terraform/terraform: 3: Syntax error: "(" unexpected
-FATAL: java.lang.Exception: Terraform Get failed: 2
-	at PluginClassLoader for terraform//org.jenkinsci.plugins.terraform.TerraformBuildWrapper.executeGet(TerraformBuildWrapper.java:224)
+FATAL: java.io.IOException: Failed to install https://releases.hashicorp.com/terraform/1.10.0-alpha20240918/terraform_1.10.0-alpha20240918_linux_amd64.zip to /usr/local/bin
+	at hudson.FilePath.installIfNecessaryFrom(FilePath.java:1075)
+	at hudson.FilePath.installIfNecessaryFrom(FilePath.java:970)
+	at hudson.tools.DownloadFromUrlInstaller.performInstallation(DownloadFromUrlInstaller.java:77)
+	at hudson.tools.InstallerTranslator.getToolHome(InstallerTranslator.java:70)
+	at hudson.tools.ToolLocationNodeProperty.getToolHome(ToolLocationNodeProperty.java:109)
+	at hudson.tools.ToolInstallation.translateFor(ToolInstallation.java:221)
+	at PluginClassLoader for terraform//org.jenkinsci.plugins.terraform.TerraformInstallation.forNode(TerraformInstallation.java:50)
+	at PluginClassLoader for terraform//org.jenkinsci.plugins.terraform.TerraformBuildWrapper.getExecutable(TerraformBuildWrapper.java:197)
+	at PluginClassLoader for terraform//org.jenkinsci.plugins.terraform.TerraformBuildWrapper.executeGet(TerraformBuildWrapper.java:210)
 	at PluginClassLoader for terraform//org.jenkinsci.plugins.terraform.TerraformBuildWrapper.setUp(TerraformBuildWrapper.java:256)
 	at hudson.model.Build$BuildExecution.doRun(Build.java:158)
 	at hudson.model.AbstractBuild$AbstractBuildExecution.run(AbstractBuild.java:526)
@@ -22,5 +18,45 @@ FATAL: java.lang.Exception: Terraform Get failed: 2
 	at hudson.model.FreeStyleBuild.run(FreeStyleBuild.java:44)
 	at hudson.model.ResourceController.execute(ResourceController.java:101)
 	at hudson.model.Executor.run(Executor.java:446)
+Caused by: jenkins.util.io.CompositeIOException: Unable to delete '/usr/local/bin'. Tried 3 times (of a maximum of 3) waiting 0.1 sec between attempts.
+	at jenkins.util.io.PathRemover.forceRemoveDirectoryContents(PathRemover.java:87)
+	at hudson.Util.deleteContentsRecursive(Util.java:299)
+	at hudson.FilePath$DeleteContents.invoke(FilePath.java:1496)
+	at hudson.FilePath$DeleteContents.invoke(FilePath.java:1491)
+	at hudson.FilePath.act(FilePath.java:1235)
+	at hudson.FilePath.act(FilePath.java:1218)
+	at hudson.FilePath.deleteContents(FilePath.java:1488)
+	at hudson.FilePath.installIfNecessaryFrom(FilePath.java:1034)
+	... 15 more
+	Suppressed: java.nio.file.FileSystemException: /usr/local/bin/jenkins.sh: Operation not permitted
+		at java.base/sun.nio.fs.UnixException.translateToIOException(Unknown Source)
+		at java.base/sun.nio.fs.UnixException.rethrowAsIOException(Unknown Source)
+		at java.base/sun.nio.fs.UnixException.rethrowAsIOException(Unknown Source)
+		at java.base/sun.nio.fs.UnixFileAttributeViews$Posix.setMode(Unknown Source)
+		at java.base/sun.nio.fs.UnixFileAttributeViews$Posix.setPermissions(Unknown Source)
+		at java.base/java.nio.file.Files.setPosixFilePermissions(Unknown Source)
+		at jenkins.util.io.PathRemover.makeWritable(PathRemover.java:283)
+		at jenkins.util.io.PathRemover.makeRemovable(PathRemover.java:256)
+		at jenkins.util.io.PathRemover.removeOrMakeRemovableThenRemove(PathRemover.java:236)
+		at jenkins.util.io.PathRemover.tryRemoveFile(PathRemover.java:202)
+		at jenkins.util.io.PathRemover.tryRemoveRecursive(PathRemover.java:213)
+		at jenkins.util.io.PathRemover.tryRemoveDirectoryContents(PathRemover.java:223)
+		at jenkins.util.io.PathRemover.forceRemoveDirectoryContents(PathRemover.java:84)
+		... 22 more
+	Suppressed: java.nio.file.FileSystemException: /usr/local/bin/jenkins-support: Operation not permitted
+		at java.base/sun.nio.fs.UnixException.translateToIOException(Unknown Source)
+		at java.base/sun.nio.fs.UnixException.rethrowAsIOException(Unknown Source)
+		at java.base/sun.nio.fs.UnixException.rethrowAsIOException(Unknown Source)
+		at java.base/sun.nio.fs.UnixFileAttributeViews$Posix.setMode(Unknown Source)
+		at java.base/sun.nio.fs.UnixFileAttributeViews$Posix.setPermissions(Unknown Source)
+		at java.base/java.nio.file.Files.setPosixFilePermissions(Unknown Source)
+		at jenkins.util.io.PathRemover.makeWritable(PathRemover.java:283)
+		at jenkins.util.io.PathRemover.makeRemovable(PathRemover.java:256)
+		at jenkins.util.io.PathRemover.removeOrMakeRemovableThenRemove(PathRemover.java:236)
+		at jenkins.util.io.PathRemover.tryRemoveFile(PathRemover.java:202)
+		at jenkins.util.io.PathRemover.tryRemoveRecursive(PathRemover.java:213)
+		at jenkins.util.io.PathRemover.tryRemoveDirectoryContents(PathRemover.java:223)
+		at jenkins.util.io.PathRemover.forceRemoveDirectoryContents(PathRemover.java:84)
+		... 22 more
 
 Finished: FAILURE
