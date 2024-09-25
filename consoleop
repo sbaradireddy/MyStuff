@@ -116,3 +116,30 @@ replace terraform? [y]es, [n]o, [A]ll, [N]one, [r]ename:  NULL
 [Pipeline] End of Pipeline
 ERROR: script returned exit code 1
 Finished: FAILURE
+
+
+
+
+pipeline {
+    agent any
+    stages {
+        stage('Install Terraform') {
+            steps {
+                sh '''
+                # Download Terraform
+                curl -o terraform.zip https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+                
+                # Unzip the binary and force overwrite if necessary
+                unzip -o terraform.zip
+                
+                # Move the binary to /usr/local/bin or a location in PATH
+                sudo mv terraform /usr/local/bin/
+                
+                # Verify installation
+                terraform version
+                '''
+            }
+        }
+    }
+}
+
