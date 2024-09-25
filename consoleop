@@ -60,3 +60,31 @@ Caused by: jenkins.util.io.CompositeIOException: Unable to delete '/usr/local/bi
 		... 22 more
 
 Finished: FAILURE
+
+
+
+
+
+pipeline {
+    agent any
+    stages {
+        stage('Install Terraform') {
+            steps {
+                sh '''
+                # Download Terraform
+                curl -o terraform.zip https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+                
+                # Unzip the binary
+                unzip terraform.zip
+                
+                # Move the binary to /usr/local/bin or a location in PATH
+                sudo mv terraform /usr/local/bin/
+                
+                # Verify installation
+                terraform version
+                '''
+            }
+        }
+    }
+}
+
