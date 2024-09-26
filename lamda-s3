@@ -1,0 +1,101 @@
+import msal
+import requests
+import boto3
+import io, os
+
+scopes = ['https://graph.microsoft.com/.default']
+
+
+CLIENT_ID = xcxc
+CLIENT_SECRET = xcxc
+TENANT_ID = xcxc
+
+# AWS s3 bucket details
+S3_BUCKET = "pr-home-datascience"
+
+# Set up MSAL
+authority = f'https://login.microsoftonline.com/{TENANT_ID}'
+#authority = f'https://login.microsoftonline.com/common/{TENANT_ID}'
+app = msal.ConfidentialClientApplication(CLIENT_ID, authority=authority, client_credential=CLIENT_SECRET)
+
+
+# Authenticate and get token
+result = app.acquire_token_for_client(scopes=scopes)
+access_token = result['access_token']
+
+graph_url = 'https://graph.microsoft.com/v1.0/users/HomeDSAWS@plymouthrock.com/mailFolders/inbox/messages?$filter=hasAttachments eq true'
+
+headers = {
+    'Authorization': f'Bearer {access_token}','Accept': 'application/json'
+}
+s3 = boto3.client('s3')
+
+# Retrieve emails
+response = requests.get(graph_url, headers=headers)
+emails_with_attachments = response.json().get('value', [])
+#print(emails_with_attachments)
+for email in emails_with_attachments:
+    email_id = email['id']
+    folder_name = email_id.split('-')[2].rstrip('/')+'/'
+    try:
+        response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=folder_name, Delimiter='/')
+        if 'Contents' in response or 'CommonPrefixes' in response:
+            print('Email already exists in bucket')
+            continue
+        else:
+            s3.put_object(Bucket=S3_BUCKET, Key=folder_name)
+            print(f"Folder {folder_name} created in Bucket")
+            email_content = email['subject'] + email['body']['content']
+            # create a txt file with email subject and body
+            filename = 'body.HTML'
+           
+            with open(filename, 'w') as file:
+                file.write(email_content)
+            s3_key = f"{folder_name}{filename}"
+            s3.upload_file(filename, S3_BUCKET, s3_key)
+            print(f"Uploaded email content as {filename} to S3")
+    except Exception as e:
+        print('An error occured', e)
+    
+    attachments_url = f'https://graph.microsoft.com/v1.0/users/HomeDSAWS@plymouthrock.com/messages/{email_id}/attachments'
+    response1 = requests.get(attachments_url, headers=headers)
+    attachments = response1.json().get('value', [])
+    for attachment in attachments:
+        if '@odata.type' in attachment and attachment['@odata.type'] == '#microsoft.graph.fileAttachment':
+            attachment_content = attachment['contentBytes']
+            attachment_name = attachment['name']
+            s3_key = f"{folder_name}{attachment_name}"
+            with open(attachment_name, 'wb') as f:
+                f.write(attachment_content.encode('utf-8'))
+
+            # Upload to S3
+            with open(attachment_name, 'rb') as f:
+                s3.upload_fileobj(f, S3_BUCKET, s3_key)
+            print(f"Uploaded {attachment_name} to S3")
+            
+    
+
+        ###############
+
+
+Response
+{
+  "errorMessage": "Handler 'lambda_handler' missing on module 'lambda_function'",
+  "errorType": "Runtime.HandlerNotFound",
+  "requestId": "",
+  "stackTrace": []
+}
+
+Function Logs
+[ERROR] Runtime.HandlerNotFound: Handler 'lambda_handler' missing on module 'lambda_function'
+Traceback (most recent call last):INIT_REPORT Init Duration: 1349.56 ms	Phase: init	Status: error	Error Type: Runtime.Unknown
+[ERROR] Runtime.HandlerNotFound: Handler 'lambda_handler' missing on module 'lambda_function'
+Traceback (most recent call last):INIT_REPORT Init Duration: 8387.28 ms	Phase: invoke	Status: error	Error Type: Runtime.Unknown
+START RequestId: abae3862-aaf7-404e-ac1a-8bc8cccd3fd9 Version: $LATEST
+Unknown application error occurred
+Runtime.Unknown
+END RequestId: abae3862-aaf7-404e-ac1a-8bc8cccd3fd9
+REPORT RequestId: abae3862-aaf7-404e-ac1a-8bc8cccd3fd9	Duration: 8387.99 ms	Billed Duration: 8388 ms	Memory Size: 128 MB	Max Memory Used: 39 MB
+
+Request ID
+abae3862-aaf7-404e-ac1a-8bc8cccd3fd9#########################
