@@ -1,42 +1,124 @@
+import msal
+import requests
+import boto3
+import base64
+import os
+
+def lambda_handler(event, context):
+    scopes = ['https://graph.microsoft.com/.default']
+
+    # Azure AD App details
+   
+    CLIENT_ID = 'jhfjkf'
+    CLIENT_SECRET = 'mhvmvmv'
+    TENANT_ID = 'jhvjhcv'
+	
+    # AWS S3 bucket details
+    S3_BUCKET = "pr-home-datascience"
+
+    # Set up MSAL
+    authority = f'https://login.microsoftonline.com/{TENANT_ID}'
+    app = msal.ConfidentialClientApplication(CLIENT_ID, authority=authority, client_credential=CLIENT_SECRET)
+
+    # Authenticate and get token
+    result = app.acquire_token_for_client(scopes=scopes)
+    access_token = result['access_token']
+
+    graph_url = 'https://graph.microsoft.com/v1.0/users/HomeDSAWS@plymouthrock.com/mailFolders/inbox/messages?$filter=hasAttachments eq true'
+
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Accept': 'application/json'
+    }
+    
+    s3 = boto3.client('s3')
+
+    # Retrieve emails
+    response = requests.get(graph_url, headers=headers)
+    emails_with_attachments = response.json().get('value', [])
+
+    for email in emails_with_attachments:
+        email_id = email['id']
+        #folder_name = email_id.split('-')[3].rstrip('/') + '/'
+		
+        split_email_id = email_id.split('-')
+        if len(split_email_id) > 2:
+        folder_name = split_email_id[2].rstrip('/') + '/'
+        else:
+    # Handle the case where the structure is not as expected
+        folder_name = 'default_folder/' 
+ 
+        try:
+            response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=folder_name, Delimiter='/')
+            if 'Contents' in response or 'CommonPrefixes' in response:
+                print('Email already exists in bucket')
+                continue
+            else:
+                s3.put_object(Bucket=S3_BUCKET, Key=folder_name)
+                print(f"Folder {folder_name} created in Bucket")
+                
+                email_content = email['subject'] + email['body']['content']
+                
+                # Create a txt file with email subject and body in /tmp
+                filename = '/tmp/body.HTML'
+                with open(filename, 'w', encoding='utf-8') as file:
+                    file.write(email_content)
+                    
+                s3_key = f"{folder_name}{os.path.basename(filename)}"
+                s3.upload_file(filename, S3_BUCKET, s3_key)
+                print(f"Uploaded email content as {filename} to S3")
+        
+        except Exception as e:
+            print('An error occurred', e)
+        
+        # Fetch attachments
+        attachments_url = f'https://graph.microsoft.com/v1.0/users/HomeDSAWS@plymouthrock.com/messages/{email_id}/attachments'
+        response1 = requests.get(attachments_url, headers=headers)
+        attachments = response1.json().get('value', [])
+        
+        for attachment in attachments:
+            if '@odata.type' in attachment and attachment['@odata.type'] == '#microsoft.graph.fileAttachment':
+                attachment_content = base64.b64decode(attachment['contentBytes'])
+                attachment_name = '/tmp/' + attachment['name']  # Use /tmp for Lambda's writable space
+                
+                # Save attachment in /tmp directory
+                with open(attachment_name, 'wb') as f:
+                    f.write(attachment_content)
+
+                # Upload to S3
+                with open(attachment_name, 'rb') as f:
+                    s3.upload_fileobj(f, S3_BUCKET, f"{folder_name}{os.path.basename(attachment_name)}")
+                print(f"Uploaded {attachment_name} to S3")
+
+
+##################
 Test Event Name
 test
 
 Response
 {
-  "errorMessage": "list index out of range",
-  "errorType": "IndexError",
-  "requestId": "486a0a57-642f-4893-990f-047e0301cc29",
+  "errorMessage": "Syntax error in module 'lambda_function': expected an indented block (lambda_function.py, line 46)",
+  "errorType": "Runtime.UserCodeSyntaxError",
+  "requestId": "",
   "stackTrace": [
-    "  File \"/var/task/lambda_function.py\", line 42, in lambda_handler\n    folder_name = email_id.split('-')[2].rstrip('/') + '/'\n"
+    "  File \"/var/task/lambda_function.py\" Line 46\n            folder_name = split_email_id[2].rstrip('/') + '/'\n"
   ]
 }
 
 Function Logs
-START RequestId: 486a0a57-642f-4893-990f-047e0301cc29 Version: $LATEST
-LAMBDA_WARNING: Unhandled exception. The most likely cause is an issue in the function code. However, in rare cases, a Lambda runtime update can cause unexpected function behavior. For functions using managed runtimes, runtime updates can be triggered by a function change, or can be applied automatically. To determine if the runtime has been updated, check the runtime version in the INIT_START log entry. If this error correlates with a change in the runtime version, you may be able to mitigate this error by temporarily rolling back to the previous runtime version. For more information, see https://docs.aws.amazon.com/lambda/latest/dg/runtimes-update.html
-[ERROR] IndexError: list index out of range
+[ERROR] Runtime.UserCodeSyntaxError: Syntax error in module 'lambda_function': expected an indented block (lambda_function.py, line 46)
 Traceback (most recent call last):
-  File "/var/task/lambda_function.py", line 42, in lambda_handler
-    folder_name = email_id.split('-')[2].rstrip('/') + '/'END RequestId: 486a0a57-642f-4893-990f-047e0301cc29
-REPORT RequestId: 486a0a57-642f-4893-990f-047e0301cc29	Duration: 3330.42 ms	Billed Duration: 3331 ms	Memory Size: 128 MB	Max Memory Used: 84 MB	Init Duration: 360.67 ms
+  File "/var/task/lambda_function.py" Line 46
+            folder_name = split_email_id[2].rstrip('/') + '/'INIT_REPORT Init Duration: 128.71 ms	Phase: init	Status: error	Error Type: Runtime.Unknown
+[ERROR] Runtime.UserCodeSyntaxError: Syntax error in module 'lambda_function': expected an indented block (lambda_function.py, line 46)
+Traceback (most recent call last):
+  File "/var/task/lambda_function.py" Line 46
+            folder_name = split_email_id[2].rstrip('/') + '/'INIT_REPORT Init Duration: 1329.79 ms	Phase: invoke	Status: error	Error Type: Runtime.Unknown
+START RequestId: ea7aeef2-1ba3-4c0a-a825-2fde4b5d7bf1 Version: $LATEST
+Unknown application error occurred
+Runtime.Unknown
+END RequestId: ea7aeef2-1ba3-4c0a-a825-2fde4b5d7bf1
+REPORT RequestId: ea7aeef2-1ba3-4c0a-a825-2fde4b5d7bf1	Duration: 1331.37 ms	Billed Duration: 1332 ms	Memory Size: 128 MB	Max Memory Used: 11 MB
 
 Request ID
-486a0a57-642f-4893-990f-047e0301cc29
-
-
-
-
-
-
-
-#####
-
-
-split_email_id = email_id.split('-')
-if len(split_email_id) > 2:
-    folder_name = split_email_id[2].rstrip('/') + '/'
-else:
-    # Handle the case where the structure is not as expected
-    folder_name = 'default_folder/'  # or raise an exception, log the issue, etc.
-
-
+ea7aeef2-1ba3-4c0a-a825-2fde4b5d7bf1
