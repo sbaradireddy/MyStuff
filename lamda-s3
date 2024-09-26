@@ -143,3 +143,35 @@ def lambda_handler(event, context):
         'body': 'Success'
     }
 
+
+#################################
+Test Event Name
+test
+
+Response
+{
+  "errorMessage": "Syntax error in module 'lambda_function': expected an indented block (lambda_function.py, line 10)",
+  "errorType": "Runtime.UserCodeSyntaxError",
+  "requestId": "",
+  "stackTrace": [
+    "  File \"/var/task/lambda_function.py\" Line 10\n    scopes = ['https://graph.microsoft.com/.default']\n"
+  ]
+}
+
+Function Logs
+[ERROR] Runtime.UserCodeSyntaxError: Syntax error in module 'lambda_function': expected an indented block (lambda_function.py, line 10)
+Traceback (most recent call last):
+  File "/var/task/lambda_function.py" Line 10
+    scopes = ['https://graph.microsoft.com/.default']INIT_REPORT Init Duration: 130.68 ms	Phase: init	Status: error	Error Type: Runtime.Unknown
+[ERROR] Runtime.UserCodeSyntaxError: Syntax error in module 'lambda_function': expected an indented block (lambda_function.py, line 10)
+Traceback (most recent call last):
+  File "/var/task/lambda_function.py" Line 10
+    scopes = ['https://graph.microsoft.com/.default']INIT_REPORT Init Duration: 1328.56 ms	Phase: invoke	Status: error	Error Type: Runtime.Unknown
+START RequestId: 85305bf8-90ab-44da-ba58-63d4fad8838e Version: $LATEST
+Unknown application error occurred
+Runtime.Unknown
+END RequestId: 85305bf8-90ab-44da-ba58-63d4fad8838e
+REPORT RequestId: 85305bf8-90ab-44da-ba58-63d4fad8838e	Duration: 1368.36 ms	Billed Duration: 1369 ms	Memory Size: 128 MB	Max Memory Used: 11 MB
+
+Request ID
+85305bf8-90ab-44da-ba58-63d4fad8838e
