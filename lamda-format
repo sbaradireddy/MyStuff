@@ -163,4 +163,33 @@ def lambda_handler(event, context):
                 with open(attachment_name, 'rb') as f:
                     s3.upload_fileobj(f, S3_BUCKET, s3_key)
                 print(f"Uploaded {attachment_name} to S3")
+
+
+#################################
+Test Event Name
+test
+
+Response
+{
+  "errorMessage": "[Errno 30] Read-only file system: 'AWS EC2 Request Form.docx'",
+  "errorType": "OSError",
+  "requestId": "b29e2030-b2cd-41ab-93fc-7e78a736a68e",
+  "stackTrace": [
+    "  File \"/var/task/lambda_function.py\", line 75, in lambda_handler\n    with open(attachment_name, 'wb') as f:\n"
+  ]
+}
+
+Function Logs
+START RequestId: b29e2030-b2cd-41ab-93fc-7e78a736a68e Version: $LATEST
+Folder y0ZBKcm7bAAAaObBdAAA=/ created in Bucket
+An error occurred [Errno 30] Read-only file system: 'body.HTML'
+LAMBDA_WARNING: Unhandled exception. The most likely cause is an issue in the function code. However, in rare cases, a Lambda runtime update can cause unexpected function behavior. For functions using managed runtimes, runtime updates can be triggered by a function change, or can be applied automatically. To determine if the runtime has been updated, check the runtime version in the INIT_START log entry. If this error correlates with a change in the runtime version, you may be able to mitigate this error by temporarily rolling back to the previous runtime version. For more information, see https://docs.aws.amazon.com/lambda/latest/dg/runtimes-update.html
+[ERROR] OSError: [Errno 30] Read-only file system: 'AWS EC2 Request Form.docx'
+Traceback (most recent call last):
+  File "/var/task/lambda_function.py", line 75, in lambda_handler
+    with open(attachment_name, 'wb') as f:END RequestId: b29e2030-b2cd-41ab-93fc-7e78a736a68e
+REPORT RequestId: b29e2030-b2cd-41ab-93fc-7e78a736a68e	Duration: 3916.48 ms	Billed Duration: 3917 ms	Memory Size: 128 MB	Max Memory Used: 86 MB	Init Duration: 348.60 ms
+
+Request ID
+b29e2030-b2cd-41ab-93fc-7e78a736a68e
         
