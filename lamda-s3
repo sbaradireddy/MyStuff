@@ -1,4 +1,4 @@
-import msal
+by import msal
 import requests
 import boto3
 import io, os
@@ -99,3 +99,47 @@ REPORT RequestId: abae3862-aaf7-404e-ac1a-8bc8cccd3fd9	Duration: 8387.99 ms	Bill
 
 Request ID
 abae3862-aaf7-404e-ac1a-8bc8cccd3fd9#########################
+
+
+
+
+
+import msal
+import requests
+import boto3
+import base64
+import io, os
+
+def lambda_handler(event, context):
+    scopes = ['https://graph.microsoft.com/.default']
+    CLIENT_ID = 'your_client_id'
+    CLIENT_SECRET = 'your_client_secret'
+    TENANT_ID = 'your_tenant_id'
+    S3_BUCKET = "your_s3_bucket"
+
+    authority = f'https://login.microsoftonline.com/{TENANT_ID}'
+    app = msal.ConfidentialClientApplication(CLIENT_ID, authority=authority, client_credential=CLIENT_SECRET)
+
+    result = app.acquire_token_for_client(scopes=scopes)
+    access_token = result.get('access_token')
+    if not access_token:
+        return {
+            'statusCode': 500,
+            'body': 'Failed to get token'
+        }
+
+    graph_url = 'https://graph.microsoft.com/v1.0/users/your_user/mailFolders/inbox/messages?$filter=hasAttachments eq true'
+    headers = {
+        'Authorization': f'Bearer {access_token}', 'Accept': 'application/json'
+    }
+    s3 = boto3.client('s3')
+    
+    response = requests.get(graph_url, headers=headers)
+    emails_with_attachments = response.json().get('value', [])
+
+    # Rest of your logic to handle emails and S3 uploads
+    return {
+        'statusCode': 200,
+        'body': 'Success'
+    }
+
