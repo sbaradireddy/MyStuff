@@ -197,3 +197,38 @@ def lambda_handler(event, context):
                 with open(attachment_name, 'rb') as f:
                     s3.upload_fileobj(f, S3_BUCKET, f"{folder_name}{os.path.basename(attachment_name)}")
                 print(f"Uploaded {attachment_name} to S3")
+
+
+
+###########################################
+Test Event Name
+test
+
+Response
+{
+  "errorType": "Runtime.ExitError",
+  "errorMessage": "RequestId: 022cd06e-8ef4-4cc9-93ad-6c1f0cfae97f Error: Runtime exited with error: signal: killed"
+}
+
+Function Logs
+START RequestId: 022cd06e-8ef4-4cc9-93ad-6c1f0cfae97f Version: $LATEST
+emails count -  9
+Folder AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3aAAA= created in Bucket
+Uploaded email content as /tmp/body.HTML to S3
+AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3aAAA=/
+AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3aAAA=/body.HTML
+Folder AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3ZAAA= created in Bucket
+Uploaded email content as /tmp/body.HTML to S3
+Uploaded /tmp/Inflationary Trend Selection for Modeling_2024-05-07.xlsx to S3
+AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3ZAAA=/
+AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3ZAAA=/Inflationary Trend Selection for Modeling_2024-05-07.xlsx
+AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3ZAAA=/body.HTML
+Folder AAMkAGU4ZWRkMGI3LWQ0NDctNGE3ZS1iN2QyLTlmODg2YmFlMzMyNwBGAAAAAABVVKFeqdKSSYHCm2TtRWO0BwA1Qe0bgT4cTptlxQT1mdz3AAAAAAEMAAA1Qe0bgT4cTptlxQT1mdz3AAAG-Q3YAAA= created in Bucket
+Uploaded email content as /tmp/body.HTML to S3
+RequestId: 022cd06e-8ef4-4cc9-93ad-6c1f0cfae97f Error: Runtime exited with error: signal: killed
+Runtime.ExitError
+END RequestId: 022cd06e-8ef4-4cc9-93ad-6c1f0cfae97f
+REPORT RequestId: 022cd06e-8ef4-4cc9-93ad-6c1f0cfae97f	Duration: 14427.65 ms	Billed Duration: 14428 ms	Memory Size: 128 MB	Max Memory Used: 128 MB
+
+Request ID
+022cd06e-8ef4-4cc9-93ad-6c1f0cfae97f
