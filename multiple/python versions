@@ -1,0 +1,76 @@
+# Use Ubuntu as the base image
+FROM ubuntu:20.04
+
+# Set environment variables to disable interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update the package list and install dependencies for Python
+RUN apt-get update && \
+    apt-get install -y \
+    software-properties-common \
+    build-essential \
+    wget \
+    curl \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libffi-dev \
+    liblzma-dev \
+    python-openssl \
+    git \
+    ca-certificates
+
+# 1. Install Python 2.7
+RUN apt-get update && apt-get install -y python2
+
+# 2. Install multiple Python 3.x versions
+# Add deadsnakes PPA for multiple Python versions
+RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && \
+    apt-get install -y \
+    python3.5 \
+    python3.6 \
+    python3.7 \
+    python3.8 \
+    python3.9 \
+    python3.10
+
+# 3. Install pyenv to manage Python versions
+RUN curl https://pyenv.run | bash
+
+# Set up pyenv environment
+ENV HOME /root
+ENV PYENV_ROOT $HOME/.pyenv
+ENV PATH $PYENV_ROOT/bin:$PATH
+
+# Add pyenv to bash so that it is available in the terminal
+RUN echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc && \
+    echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc && \
+    echo 'eval "$(pyenv init --path)"' >> ~/.bashrc && \
+    echo 'eval "$(pyenv init -)"' >> ~/.bashrc && \
+    echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+
+# Reload shell to apply pyenv to the environment
+SHELL ["/bin/bash", "-c"]
+
+# 4. Install specific Python versions using pyenv
+# This can include both Python 2.x and 3.x
+RUN pyenv install 2.7.18 && \
+    pyenv install 3.6.15 && \
+    pyenv install 3.7.12 && \
+    pyenv install 3.8.12 && \
+    pyenv install 3.9.7 && \
+    pyenv install 3.10.0 && \
+    pyenv global 3.10.0 3.9.7 3.8.12 3.7.12 3.6.15 2.7.18
+
+# 5. Install pip for all Python versions
+RUN apt-get install -y python3-pip && \
+    curl https://bootstrap.pypa.io/pip/2.7/get-pip.py -o get-pip.py && \
+    python2 get-pip.py
+
+# 6. Clean up
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Default to bash when the container starts
+CMD ["/bin/bash"]
