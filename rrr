@@ -1,0 +1,87 @@
+. Compare the Data in DEV vs QA
+Query in DEV: Extract the POL_PK records for the problematic entries (e.g., 83709650, 83499687, 83499688) in the FILTRANS dataset:
+
+sql
+Copy code
+SELECT *
+FROM FILTRANS
+WHERE POL_PK IN (83709650, 83499687, 83499688);
+Query in QA: Run the same query in qa to see if these records are present:
+
+sql
+Copy code
+SELECT *
+FROM FILTRANS
+WHERE POL_PK IN (83709650, 83499687, 83499688);
+2. Identify Differences in EXPTRANS1 Logic
+Since FILTRANS is derived from EXPTRANS1, discrepancies may arise due to differences in the FILTER_OUT_IND logic. Compare the relevant logic for these specific records:
+
+Debugging Query for EXPTRANS1 in DEV:
+sql
+Copy code
+SELECT POL_PK, ROW_STAT, DMV_TRANS_TYPE, REINST_TYP, POL_VRSN_TXN_TYP,
+       POL_PK_REINSTATED_WITH_LAPSE, POL_PK_CANCEL, POL_PK_ADD_VEH,
+       CASE
+           WHEN DMV_TRANS_TYPE = 'NB' AND SUBSTR(POL_VRSN_TXN_TYP, 1, 2) != 'EN' THEN 'N'
+           WHEN DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'WITH LAPSE' THEN 'N'
+           WHEN DMV_TRANS_TYPE = 'CN' AND ROW_STAT = 'C' THEN 'N'
+           WHEN DMV_TRANS_TYPE = 'CN' AND ROW_STAT != 'C' AND POL_PK_REINSTATED_WITH_LAPSE > 0 AND 
+                POL_PK_REINSTATED_WITH_LAPSE > POL_PK THEN 'N'
+           WHEN DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'REINSTATE' AND ROW_STAT = 'C' AND POL_PK_CANCEL IS NULL THEN 'N'
+           WHEN DMV_TRANS_TYPE = 'AV' AND POL_PK = POL_PK_ADD_VEH THEN 'N'
+           ELSE 'Y'
+       END AS FILTER_OUT_IND
+FROM EXP_PRE_FILTER
+WHERE POL_PK IN (83709650, 83499687, 83499688);
+Debugging Query for EXPTRANS1 in QA:
+Run the same query in qa and compare the outputs.
+
+3. Check Key Conditions
+Focus on the logic used in FILTER_OUT_IND. Here are the conditions:
+
+Condition 1: DMV_TRANS_TYPE = 'NB' AND SUBSTR(POL_VRSN_TXN_TYP, 1, 2) != 'EN'
+Condition 2: DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'WITH LAPSE'
+Condition 3: DMV_TRANS_TYPE = 'CN' AND ROW_STAT = 'C'
+Condition 4: DMV_TRANS_TYPE = 'CN' AND ROW_STAT != 'C' AND POL_PK_REINSTATED_WITH_LAPSE > POL_PK
+Condition 5: DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'REINSTATE' AND ROW_STAT = 'C' AND POL_PK_CANCEL IS NULL
+Condition 6: DMV_TRANS_TYPE = 'AV' AND POL_PK = POL_PK_ADD_VEH
+For the extra records in dev:
+
+Verify which condition evaluates to TRUE for FILTER_OUT_IND = 'N'.
+If the logic differs between dev and qa, ensure both environments use identical business rules.
+4. Analyze Source Data Discrepancies
+The issue may also stem from differences in the source table (EXP_PRE_FILTER).
+
+Compare Source Data:
+DEV Query:
+
+sql
+Copy code
+SELECT *
+FROM EXP_PRE_FILTER
+WHERE POL_PK IN (83709650, 83499687, 83499688);
+QA Query:
+
+sql
+Copy code
+SELECT *
+FROM EXP_PRE_FILTER
+WHERE POL_PK IN (83709650, 83499687, 83499688);
+Look for discrepancies in critical columns such as:
+
+ROW_STAT
+DMV_TRANS_TYPE
+REINST_TYP
+POL_PK_REINSTATED_WITH_LAPSE
+POL_PK_CANCEL
+POL_PK_ADD_VEH
+5. Fix in DEV
+Once you identify the root cause (logic issue or source data inconsistency), apply the fix:
+
+Logic Issue:
+Update the FILTER_OUT_IND logic in EXPTRANS1 to match the desired behavior.
+Data Issue:
+Correct the source data (EXP_PRE_FILTER) for the problematic records in dev.
+6. Validate the Fix
+After applying the fix, re-run the comparison queries to ensure no extra records exist in dev compared to qa.
+
