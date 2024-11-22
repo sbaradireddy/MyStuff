@@ -1,3 +1,49 @@
+SELECT POL_PK, DMV_TRANS_TYPE, ROW_STAT, POL_VRSN_TXN_TYP, REINST_TYP, 
+       COALESCE(POL_PK_REINSTATED_WITH_LAPSE, 0) AS POL_PK_REINSTATED_WITH_LAPSE_CLEAN, 
+       COALESCE(POL_PK_CANCEL, 0) AS POL_PK_CANCEL_CLEAN,  -- Handling NULLs for POL_PK_CANCEL
+       POL_PK_ADD_VEH,
+       CASE
+           -- Condition1
+           WHEN DMV_TRANS_TYPE = 'NB' AND SUBSTR(POL_VRSN_TXN_TYP, 1, 2) != 'EN' THEN 'Condition1'
+           -- Condition2
+           WHEN DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'WITH LAPSE' THEN 'Condition2'
+           -- Condition3
+           WHEN DMV_TRANS_TYPE = 'CN' AND ROW_STAT = 'C' THEN 'Condition3'
+           -- Condition4
+           WHEN DMV_TRANS_TYPE = 'CN' AND ROW_STAT != 'C' 
+                AND COALESCE(POL_PK_REINSTATED_WITH_LAPSE, 0) > 0 
+                AND COALESCE(POL_PK_REINSTATED_WITH_LAPSE, 0) > POL_PK THEN 'Condition4'
+           -- Condition5
+           WHEN DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'REINSTATE' 
+                AND ROW_STAT = 'C' 
+                AND POL_PK_CANCEL IS NULL THEN 'Condition5'
+           -- Condition6 (This should trigger for POL_PK = POL_PK_ADD_VEH)
+           WHEN DMV_TRANS_TYPE = 'AV' AND POL_PK = POL_PK_ADD_VEH THEN 'Condition6'
+           ELSE 'Default'
+       END AS MATCHED_CONDITION
+FROM EXP_PRE_FILTER
+WHERE POL_PK IN (83709650, 83499687, 83499688);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 SELECT POL_PK, DMV_TRANS_TYPE, ROW_STAT, POL_VRSN_TXN_TYP, REINST_TYP, 
        POL_PK_CANCEL, POL_PK_ADD_VEH,
