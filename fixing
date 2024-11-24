@@ -17,19 +17,29 @@ WITH EXPTRANS1 AS (
         IFF(A.DMV_TRANS_TYPE = 'RS' AND A.REINST_TYP = 'REINSTATE' 
              AND A.ROW_STAT = 'C' 
              AND COALESCE(A.POL_PK_CANCEL, 0) = 0 
-             AND B.POL_PK IS NULL, 'N', -- Exclude extra RS records using join with LKP_REINSTATE_WITH_LAPSE1
+             AND NOT EXISTS (
+                 SELECT 1 FROM LKP_REINSTATE_WITH_LAPSE1 B WHERE A.POL_PK = B.POL_PK
+             ), 'N', -- Ensures RS logic includes only valid records
         IFF(A.DMV_TRANS_TYPE = 'AV' AND A.POL_PK = A.POL_PK_ADD_VEH 
-             AND C.POL_PK IS NOT NULL, 'N', -- Exclude extra AV records using join with LKP_ADD_VEH_DUPLICATES
+             AND EXISTS (
+                 SELECT 1 FROM LKP_ADD_VEH_DUPLICATES C WHERE A.POL_PK = C.POL_PK
+             ), 'N', -- Ensures AV logic includes only valid records
         'Y')))))) AS FILTER_OUT_IND
     FROM EXP_PRE_FILTER A
-    LEFT JOIN (
-        SELECT DISTINCT POL_PK
-        FROM LKP_REINSTATE_WITH_LAPSE1
-    ) B ON A.POL_PK = B.POL_PK -- Join with LKP_REINSTATE_WITH_LAPSE1
-    LEFT JOIN (
-        SELECT DISTINCT POL_PK
-        FROM LKP_ADD_VEH_DUPLICATES
-    ) C ON A.POL_PK = C.POL_PK -- Join with LKP_ADD_VEH_DUPLICATES
+),
+FILTRANS AS (
+    SELECT 
+        E.POL_PK,
+        E.DMV_TRANS_TYPE,
+        E.ROW_STAT,
+        E.FILTER_OUT_IND,
+        E.POL_VRSN_TXN_TYP,
+        E.REINST_TYP,
+        E.POL_PK_REINSTATED_WITH_LAPSE,
+        E.POL_PK_CANCEL,
+        E.POL_PK_ADD_VEH
+    FROM EXPTRANS1 E
+    WHERE E.FILTER_OUT_IND = 'N'
 )
-SELECT * 
-FROM EXPTRANS1;
+SELECT *
+FROM FILTRANS;
