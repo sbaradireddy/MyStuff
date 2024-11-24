@@ -1,3 +1,61 @@
+
+WITH EXPTRANS1 AS (
+    SELECT 
+        ep.POL_PK,
+        ep.DMV_TRANS_TYPE,
+        ep.ROW_STAT,
+        ep.POL_VRSN_TXN_TYP,
+        ep.REINST_TYP,
+        ep.POL_PK_REINSTATED_WITH_LAPSE,
+        COALESCE(ep.POL_PK_CANCEL, 0) AS POL_PK_CANCEL,
+        ep.POL_PK_ADD_VEH,
+        COALESCE(lr.POL_PK, 0) AS REINSTATE_MATCH, -- From LKP_REINSTATE_WITH_LAPSE1
+        COALESCE(lv.POL_PK, 0) AS ADD_VEH_MATCH    -- From LKP_ADD_VEH_DUPLICATES
+    FROM EXP_PRE_FILTER ep
+    LEFT JOIN LKP_REINSTATE_WITH_LAPSE1 lr 
+        ON ep.POL_PK = lr.POL_PK
+    LEFT JOIN LKP_ADD_VEH_DUPLICATES lv 
+        ON ep.POL_PK = lv.POL_PK
+),
+FINAL_RESULT AS (
+    SELECT 
+        POL_PK,
+        DMV_TRANS_TYPE,
+        ROW_STAT,
+        POL_VRSN_TXN_TYP,
+        REINST_TYP,
+        POL_PK_REINSTATED_WITH_LAPSE,
+        POL_PK_CANCEL,
+        POL_PK_ADD_VEH,
+        IFF(DMV_TRANS_TYPE = 'NB' AND SUBSTR(POL_VRSN_TXN_TYP, 1, 2) != 'EN', 'N',
+        IFF(DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'WITH LAPSE', 'N',
+        IFF(DMV_TRANS_TYPE = 'CN' AND ROW_STAT = 'C', 'N',
+        IFF(DMV_TRANS_TYPE = 'CN' AND ROW_STAT != 'C' 
+             AND POL_PK_REINSTATED_WITH_LAPSE > 0 
+             AND POL_PK_REINSTATED_WITH_LAPSE > POL_PK, 'N',
+        IFF(DMV_TRANS_TYPE = 'RS' AND REINST_TYP = 'REINSTATE' 
+             AND ROW_STAT = 'C' 
+             AND POL_PK_CANCEL = 0 
+             AND REINSTATE_MATCH = 0, 'N', -- Exclude extra RS records
+        IFF(DMV_TRANS_TYPE = 'AV' AND POL_PK = POL_PK_ADD_VEH 
+             AND ADD_VEH_MATCH != 0, 'N', -- Exclude extra AV records
+        'Y')))))) AS FILTER_OUT_IND
+    FROM EXPTRANS1
+)
+SELECT * FROM FINAL_RESULT;
+
+
+
+
+
+
+
+
+
+
+
+
+
 SELECT 
     POL_PK,
     DMV_TRANS_TYPE,
