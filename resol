@@ -1,17 +1,37 @@
-WITH Final AS (
-    -- Replace FINAL_SELECT_S20_NJ_DMV_MTHLY_BUILD with your final query
-    SELECT * FROM FINAL_SELECT_S20_NJ_DMV_MTHLY_BUILD
+WITH LKP_ADD_VEH_DUPLICATES_cache AS (
+    SELECT 
+        POL_PK,
+        POL_NUM,
+        DMV_TRANS_TYPE,
+        POL_STATE_EFF_DT,
+        DMV_VIN,
+        ROW_NUMBER() OVER (
+            PARTITION BY POL_NUM, DMV_TRANS_TYPE, DMV_VIN 
+            ORDER BY 
+                POL_STATE_EFF_DT DESC,    -- Latest effective date
+                ROW_STAT DESC,           -- Priority for active status
+                ROW_XPTN_DT DESC,        -- Latest exception date
+                DATA_DT DESC             -- Latest data date
+        ) AS rn
+    FROM S10_NJ_DMV_MTHLY_EXTRACT
+    WHERE DMV_TRANS_TYPE = 'AV'
 ),
-Source AS (
-    SELECT * FROM S10_NJ_DMV_MTHLY_EXTRACT
+FilteredRecords AS (
+    -- Identify and exclude duplicates dynamically based on ranking
+    SELECT *
+    FROM LKP_ADD_VEH_DUPLICATES_cache
+    WHERE rn = 1 -- Keep only the top-ranked record for each DMV_TRANS_TYPE = 'AV'
+),
+FinalResults AS (
+    SELECT 
+        S10_NJ_DMV_MTHLY_EXTRACT.*,
+        FilteredRecords.lkp_POL_PK
+    FROM S10_NJ_DMV_MTHLY_EXTRACT
+    LEFT JOIN FilteredRecords
+        ON FilteredRecords.POL_NUM = S10_NJ_DMV_MTHLY_EXTRACT.POL_NUM
+       AND FilteredRecords.DMV_VIN = S10_NJ_DMV_MTHLY_EXTRACT.DMV_VIN
+       AND FilteredRecords.DMV_TRANS_TYPE = S10_NJ_DMV_MTHLY_EXTRACT.DMV_TRANS_TYPE
+       AND FilteredRecords.POL_STATE_EFF_DT <= S10_NJ_DMV_MTHLY_EXTRACT.POL_STATE_EFF_DT
 )
 SELECT *
-FROM Final
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM Source
-    WHERE Final.POL_PK = Source.POL_PK
-      AND Final.POL_NUM = Source.POL_NUM
-      AND Final.DMV_VIN = Source.DMV_VIN
-      -- Add other key fields to match
-);
+FROM FinalResults;
