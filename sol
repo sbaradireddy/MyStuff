@@ -1,4 +1,9 @@
-       IFF(RTRIM(LTRIM(IN_COV_CD)) = 'FRAUD','E', 
+SQL compilation error: syntax error line 1,984 at position 15 unexpected 'IFF'. syntax error line 1,984 at position 19 unexpected 'RTRIM'. syntax error line 1,984 at position 25 unexpected 'IN_DWELLING_FORM_CODE'. syntax error line 1,989 at position 18 unexpected ')'.
+
+
+
+
+IFF(RTRIM(LTRIM(IN_COV_CD)) = 'FRAUD','E', 
                IFF((RTRIM(IN_DWELLING_FORM_CODE) ='HO_3' OR RTRIM(IN_DWELLING_FORM_CODE) ='HO_4' OR RTRIM(IN_DWELLING_FORM_CODE) ='HO_5') 
                AND IN_PERS_PROP_COUNT<1 
                AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD)='P', DECODE(TRUE, IN_STATUS_COV_COUNT<1 
