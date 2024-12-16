@@ -1,3 +1,25 @@
+ IFF( IN_DWELLING_FORM_CODE IS NULL,' ',
+               IFF(RTRIM(IN_DWELLING_FORM_CODE)='HO_5',' ', 
+               IFF(RTRIM(IN_DWELLING_FORM_CODE)='HO_3' AND v_COV_A_LIMIT_AMT<>0 ,
+               IFF((v_COV_C_LIMIT_AMT/v_COV_A_LIMIT_AMT)>0.4, 
+               DECODE((v_COV_C_LIMIT_AMT/v_COV_A_LIMIT_AMT),0.4,'2',0.5,'3', 0.6,'4',0.7,'4',0.75,'6',1,'7','9'),'1'
+               )))) AS OUT_COV_C_PCT_CD,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 CASE 
     WHEN RTRIM(LTRIM(IN_COV_CD)) = 'FRAUD' THEN 'E'
     WHEN (RTRIM(IN_DWELLING_FORM_CODE) IN ('HO_3', 'HO_4', 'HO_5') 
