@@ -1,3 +1,68 @@
+CASE 
+    WHEN RTRIM(LTRIM(IN_COV_CD)) = 'FRAUD' THEN 'E'
+    WHEN (RTRIM(IN_DWELLING_FORM_CODE) IN ('HO_3', 'HO_4', 'HO_5') 
+          AND IN_PERS_PROP_COUNT < 1 
+          AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P') THEN
+        CASE 
+            WHEN IN_STATUS_COV_COUNT < 1 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N' THEN '1'
+            WHEN IN_STATUS_COV_COUNT >= 1 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N' THEN '2'
+            ELSE '1'
+        END
+    WHEN (RTRIM(IN_DWELLING_FORM_CODE) IN ('HO_3', 'HO_4', 'HO_5') 
+          AND IN_PERS_PROP_COUNT < 1 
+          AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) <> 'P') THEN
+        CASE 
+            WHEN IN_STATUS_COV_COUNT < 1 AND RTRIM(IN_SEC_OR_SEASONAL_IND) <> 'E' THEN '3'
+            WHEN IN_STATUS_COV_COUNT >= 1 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'E' THEN '4'
+            ELSE '1'
+        END
+    WHEN RTRIM(IN_DWELLING_FORM_CODE) = 'HO_3' AND IN_PERS_PROP_COUNT >= 1 THEN '7'
+    WHEN RTRIM(IN_DWELLING_FORM_CODE) = 'HO_6' AND IN_BUILD_ADD1_COV_COUNT < 1 THEN
+        CASE 
+            WHEN IN_STATUS_COV_COUNT < 1 AND IN_RNTL_OTHR_COV_COUNT < 1 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N' 
+                 AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P' THEN '1'
+            WHEN IN_STATUS_COV_COUNT >= 1 AND IN_RNTL_OTHR_COV_COUNT < 1 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N' 
+                 AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P' THEN '2'
+            WHEN IN_STATUS_COV_COUNT < 1 AND IN_RNTL_OTHR_COV_COUNT >= 1 
+                 AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'R' THEN '5'
+            WHEN IN_STATUS_COV_COUNT >= 1 AND IN_RNTL_OTHR_COV_COUNT >= 1 
+                 AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'R' THEN '6'
+            WHEN RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'S' 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) <> 'E' THEN '3'
+            WHEN RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'S' 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'E' THEN '4'
+            ELSE '1'
+        END
+    WHEN RTRIM(IN_DWELLING_FORM_CODE) = 'HO_6' AND IN_BUILD_ADD1_COV_COUNT >= 1 THEN '7'
+    WHEN RTRIM(IN_DWELLING_FORM_CODE) = 'DP_3' THEN
+        CASE 
+            WHEN RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P' 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N' THEN '1'
+            WHEN RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P' 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) <> 'N' THEN '3'
+            WHEN RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) <> 'P' 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N' THEN '5'
+            WHEN RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) <> 'P' 
+                 AND RTRIM(IN_SEC_OR_SEASONAL_IND) <> 'N' THEN '7'
+            ELSE '1'
+        END
+    ELSE NULL
+END AS OUT_STATUS_CODE
+
+
+
+
+
+
+
+
+
+
+
+
+
 SQL compilation error: syntax error line 1,984 at position 15 unexpected 'IFF'. syntax error line 1,984 at position 19 unexpected 'RTRIM'. syntax error line 1,984 at position 25 unexpected 'IN_DWELLING_FORM_CODE'. syntax error line 1,989 at position 18 unexpected ')'.
 
 
