@@ -1,3 +1,27 @@
+CASE 
+    WHEN IN_DWELLING_FORM_CODE IS NULL THEN ' '
+    WHEN RTRIM(IN_DWELLING_FORM_CODE) = 'HO_5' THEN ' '
+    WHEN RTRIM(IN_DWELLING_FORM_CODE) = 'HO_3' AND v_COV_A_LIMIT_AMT <> 0 THEN
+        CASE 
+            WHEN (v_COV_C_LIMIT_AMT / v_COV_A_LIMIT_AMT) > 0.4 THEN
+                DECODE((v_COV_C_LIMIT_AMT / v_COV_A_LIMIT_AMT),
+                    0.4, '2',
+                    0.5, '3',
+                    0.6, '4',
+                    0.7, '4',
+                    0.75, '6',
+                    1, '7',
+                    '9')
+            ELSE '1'
+        END
+    ELSE NULL
+END AS OUT_COV_C_PCT_CD
+
+
+
+
+
+
  IFF( IN_DWELLING_FORM_CODE IS NULL,' ',
                IFF(RTRIM(IN_DWELLING_FORM_CODE)='HO_5',' ', 
                IFF(RTRIM(IN_DWELLING_FORM_CODE)='HO_3' AND v_COV_A_LIMIT_AMT<>0 ,
