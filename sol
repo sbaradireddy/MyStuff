@@ -1,5 +1,24 @@
 
 SELECT 
+    'SELECT ' || 
+    LISTAGG(
+        'CASE WHEN TRY_TO_NUMBER(' || column_name || ') IS NULL THEN ''' || column_name || ''' END AS ' || column_name,
+        ', '
+    ) WITHIN GROUP (ORDER BY ordinal_position) 
+    || ' FROM your_table' AS validation_query
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE table_name = 'YOUR_TABLE_NAME'
+  AND table_schema = 'YOUR_SCHEMA_NAME';
+
+
+
+
+
+
+
+
+
+SELECT 
     TO_DATE('2024-09-01', 'YYYY-MM-DD') AS V_EFF_DATE,
     TRUNC(TO_DATE('2024-09-01', 'YYYY-MM-DD'), 'DD') AS TRUNC_EFF_DT,
     CASE 
