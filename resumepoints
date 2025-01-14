@@ -1,1 +1,22 @@
+IFF(
+    RTRIM(IN_DWELLING_FORM_CODE) = 'DP_3',
+    DECODE(
+        TRUE,
+        (RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P' AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N'), '1',
+        (RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P' AND RTRIM(IN_SEC_OR_SEASONAL_IND) <> 'N'), '3',
+        (RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) <> 'P' AND RTRIM(IN_SEC_OR_SEASONAL_IND) = 'N'), '5',
+        (RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) <> 'P' AND RTRIM(IN_SEC_OR_SEASONAL_IND) <> 'N'), '7',
+        '1' -- Default value if none of the conditions match
+    ),
+    NULL -- Value when the condition RTRIM(IN_DWELLING_FORM_CODE) = 'DP_3' is false
+)
+
+
+
+
+
+
+
+
+
 not enough arguments for function [IFF((RTRIM(IN_DWELLING_FORM_CODE)) = 'DP_3', DECODE(TRUE, CAST(((RTRIM(IN_DF_DWELLING_USE_OCCUP_CD)) = 'P') AND ((RTRIM(IN_SEC_OR_SEASONAL_IND)) = 'N') AS BOOLEAN), '1', CAST(((RTRIM(IN_DF_DWELLING_USE_OCCUP_CD)) = 'P') AND ((RTRIM(IN_SEC_OR_SEASONAL_IND)) <> 'N') AS BOOLEAN), '3', CAST(((RTRIM(IN_DF_DWELLING_USE_OCCUP_CD)) <> 'P') AND ((RTRIM(IN_SEC_OR_SEASONAL_IND)) = 'N') AS BOOLEAN), '5', CAST(((RTRIM(IN_DF_DWELLING_USE_OCCUP_CD)) <> 'P') AND ((RTRIM(IN_SEC_OR_SEASONAL_IND)) <> 'N') AS BOOLEAN), '7', '1'))], expected 3, got 2
