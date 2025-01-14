@@ -1,3 +1,32 @@
+SELECT 
+    RTRIM(LTRIM(IN_COV_CD)) AS Trimmed_IN_COV_CD,
+    RTRIM(IN_DWELLING_FORM_CODE) AS Trimmed_IN_DWELLING_FORM_CODE,
+    IN_PERS_PROP_COUNT,
+    RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) AS Trimmed_IN_DF_DWELLING_USE_OCCUP_CD,
+    IN_STATUS_COV_COUNT,
+    RTRIM(IN_SEC_OR_SEASONAL_IND) AS Trimmed_IN_SEC_OR_SEASONAL_IND,
+    IN_BUILD_ADD1_COV_COUNT,
+    IN_RNTL_OTHR_COV_COUNT,
+    CASE 
+        WHEN RTRIM(LTRIM(IN_COV_CD)) = 'FRAUD' THEN 'E'
+        WHEN (RTRIM(IN_DWELLING_FORM_CODE) IN ('HO_3', 'HO_4', 'HO_5') AND IN_PERS_PROP_COUNT < 1 
+              AND RTRIM(IN_DF_DWELLING_USE_OCCUP_CD) = 'P') THEN 'Condition_Met_Here'
+        -- Add all intermediate conditions for clarity
+    END AS Debug_Output,
+    CASE 
+        WHEN RTRIM(LTRIM(IN_COV_CD)) = 'FRAUD' THEN 'E'
+        -- Your full case logic here
+    END AS OUT_STATUS_CODE
+FROM table_name
+WHERE <filters>;
+
+
+
+
+
+
+
+
 
                CASE 
     WHEN RTRIM(LTRIM(IN_COV_CD)) = 'FRAUD' THEN 'E'
