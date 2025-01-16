@@ -1,4 +1,24 @@
 
+SELECT
+    v_ISO_POLICY_FORM_CODE,
+    v_CURRENT_YR,
+    v_ROOF_AGE_INT,
+    v_roof_age_last_2_digits_yr,
+    v_CURRENT_YR - v_ROOF_AGE_INT AS year_difference,
+    CASE
+        WHEN v_CURRENT_YR - v_ROOF_AGE_INT > 2000 THEN 'Case 1: > 2000'
+        WHEN v_CURRENT_YR - v_ROOF_AGE_INT = 2000 THEN 'Case 2: = 2000'
+        WHEN v_CURRENT_YR - v_ROOF_AGE_INT = 1999 THEN 'Case 3: = 1999'
+        WHEN v_CURRENT_YR - v_ROOF_AGE_INT BETWEEN 1985 AND 1998 THEN 'Case 4: 1985-1998'
+        ELSE 'Default Case: 99'
+    END AS debug_case
+FROM your_table;
+
+
+
+
+
+
   IFF( v_cur_minus_roof_age_yr IS NULL,'00', (SUBSTR(TO_CHAR(v_cur_minus_roof_age_yr),3,2))) AS v_roof_age_last_2_digits_yr, 
 				          IFF(LTRIM(RTRIM(ROOF_AGE)) = '21 + Years', 21, v_CURRENT_YR - IFF( YR_BLT IS NULL, v_CURRENT_YR, YR_BLT))))))) AS v_ROOF_AGE_INT,
 	,
