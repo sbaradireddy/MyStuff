@@ -1,36 +1,14 @@
-SELECT 
-    COUNT(*) AS COV_COUNT,
-    COUNT(*) + 0 AS V_THREE_FAM_COUNT,
-    CASE 
-        WHEN COUNT(*) + 0 IS NULL THEN 0 
-        ELSE COUNT(*) + 0 
-    END AS THREE_FAM_COUNT,
-    CASE 
-        WHEN (COUNT(*) + 0) > 0 THEN 'Y' 
-        ELSE 'N' 
-    END AS EXISTS_THREE_FAM_COV_IND,
-    h.POL_PK AS POL_PK,
-    h.ORIG_POL_PK AS ORIG_POL_PK,
-    LTRIM(RTRIM(h.PREMIUM_SOURCE_C)) AS PREMIUM_SOURCE_C
-FROM BURRPT.S10_ISO_PLOTA_EXTRACT_NE h
-GROUP BY 
-    h.POL_PK,  
-    h.ORIG_POL_PK, 
-    h.PREMIUM_SOURCE_C;
+
+  IFF( v_cur_minus_roof_age_yr IS NULL,'00', (SUBSTR(TO_CHAR(v_cur_minus_roof_age_yr),3,2))) AS v_roof_age_last_2_digits_yr, 
+				          IFF(LTRIM(RTRIM(ROOF_AGE)) = '21 + Years', 21, v_CURRENT_YR - IFF( YR_BLT IS NULL, v_CURRENT_YR, YR_BLT))))))) AS v_ROOF_AGE_INT,
+	,
+                SUBSTR(V_RPRTG_PERIOD_START_DT,1,4) :: INT  AS v_CURRENT_YR,
 
 
-
-
-
-
-select
-        count(*) as COV_COUNT
-        COV_COUNT+0 AS V_THREE_FAM_COUNT,
-        IFF( V_THREE_FAM_COUNT IS NULL, 0, V_THREE_FAM_COUNT) AS THREE_FAM_COUNT,
-IFF(THREE_FAM_COUNT > 0, 'Y','N') AS EXISTS_THREE_FAM_COV_IND,
-        , h.POL_PK as POL_PK
-        , h.ORIG_POL_PK as ORIG_POL_PK
-        , LTRIM(RTRIM(h.PREMIUM_SOURCE_C)) as PREMIUM_SOURCE_C
-from BURRPT.S10_ISO_PLOTA_EXTRACT_NE h
-  
-GROUP BY h.POL_PK,  h.ORIG_POL_PK, h.PREMIUM_SOURCE_C
+  IFF(v_ISO_POLICY_FORM_CODE = '4' 
+	OR v_ISO_POLICY_FORM_CODE = '6', ' ', 
+	IFF(v_CURRENT_YR - v_ROOF_AGE_INT > 2000, v_roof_age_last_2_digits_yr, 
+	IFF(v_CURRENT_YR - v_ROOF_AGE_INT = 2000,'TT', 
+	IFF(v_CURRENT_YR - v_ROOF_AGE_INT = 1999,'NN', 
+	IFF(v_CURRENT_YR - v_ROOF_AGE_INT >= 1985 
+	AND v_CURRENT_YR - v_ROOF_AGE_INT <= 1998, v_roof_age_last_2_digits_yr, '99'))))) AS ISO_ROOF_INSTALL_YR_CD,
