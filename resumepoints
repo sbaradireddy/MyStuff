@@ -1,3 +1,27 @@
+
+
+SELECT DISTINCT
+    2023 - v_ROOF_AGE_INT AS year_difference,
+    SUBSTR(TO_CHAR(2023 - v_ROOF_AGE_INT), 3, 2) AS v_roof_age_last_2_digits_yr,
+    IFF(
+        v_ISO_POLICY_FORM_CODE = '4' OR v_ISO_POLICY_FORM_CODE = '6', 
+        ' ', 
+        IFF(2023 - v_ROOF_AGE_INT > 2000, 
+            SUBSTR(TO_CHAR(2023 - v_ROOF_AGE_INT), 3, 2), 
+            IFF(2023 - v_ROOF_AGE_INT = 2000, 'TT', 
+                IFF(2023 - v_ROOF_AGE_INT = 1999, 'NN', 
+                    IFF(2023 - v_ROOF_AGE_INT >= 1985 AND 2023 - v_ROOF_AGE_INT <= 1998, 
+                        SUBSTR(TO_CHAR(2023 - v_ROOF_AGE_INT), 3, 2), 
+                        '99'))))
+    ) AS ISO_ROOF_INSTALL_YR_CD
+FROM rdmqa.burrpt.S10_ISO_PLOTA_EXTRACT_NE
+WHERE cvg_pk = '1341072178';
+
+
+
+
+
+
 SELECT distinct
    
     DECODE(RTRIM(LTRIM(UNIT_TYPE)), 'DP_3','3', 'HO_3','3', 'HO_4','4', 'HO_5','5', 'HO_6','6', ' ') AS v_ISO_POLICY_FORM_CODE,
