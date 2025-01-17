@@ -1,4 +1,26 @@
 
+SELECT DISTINCT
+    ROOF_AGE,
+    YR_BLT,
+    IFF(
+        LTRIM(RTRIM(ROOF_AGE)) = '21 + Years', 
+        21,
+        IFF(LTRIM(RTRIM(ROOF_AGE)) LIKE '%-%',
+            CAST(SUBSTR(LTRIM(RTRIM(ROOF_AGE)), 1, INSTR(LTRIM(RTRIM(ROOF_AGE)), '-') - 1) AS INT),
+            2023 - IFF(YR_BLT IS NULL, 2023, YR_BLT)
+        )
+    ) AS v_ROOF_AGE_INT
+FROM rdmqa.burrpt.S10_ISO_PLOTA_EXTRACT_NE
+WHERE cvg_pk = '1341072178';
+
+
+
+
+
+
+
+
+
 
 SELECT DISTINCT
     2023 - v_ROOF_AGE_INT AS year_difference,
