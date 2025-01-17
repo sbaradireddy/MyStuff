@@ -9,6 +9,41 @@ SELECT DISTINCT
     IFF(
         v_ISO_POLICY_FORM_CODE = '4' OR v_ISO_POLICY_FORM_CODE = '6', 
         ' ', 
+        IFF(year_difference = 2013, 
+            '13',  -- Explicitly handle 2013
+            IFF(year_difference > 2000, 
+                SUBSTR(TO_CHAR(year_difference), 3, 2), 
+                IFF(year_difference = 2000, 'TT', 
+                    IFF(year_difference = 1999, 'NN', 
+                        IFF(year_difference >= 1985 AND year_difference <= 1998, 
+                            SUBSTR(TO_CHAR(year_difference), 3, 2), 
+                            '99')))))
+    ) AS ISO_ROOF_INSTALL_YR_CD
+FROM rdmqa.burrpt.S10_ISO_PLOTA_EXTRACT_NE
+WHERE cvg_pk = '1341072178';
+
+
+
+
+
+
+
+
+
+
+
+
+
+SELECT DISTINCT
+    ROOF_AGE,
+    YR_BLT,
+    v_ISO_POLICY_FORM_CODE,
+    v_ROOF_AGE_INT,
+    2023 - v_ROOF_AGE_INT AS year_difference,
+    SUBSTR(TO_CHAR(2023 - v_ROOF_AGE_INT), 3, 2) AS v_roof_age_last_2_digits_yr,
+    IFF(
+        v_ISO_POLICY_FORM_CODE = '4' OR v_ISO_POLICY_FORM_CODE = '6', 
+        ' ', 
         IFF(2023 - v_ROOF_AGE_INT > 2000, 
             SUBSTR(TO_CHAR(2023 - v_ROOF_AGE_INT), 3, 2), 
             IFF(2023 - v_ROOF_AGE_INT = 2000, 'TT', 
