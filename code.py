@@ -1,3 +1,129 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 2 — fixed read (handles all parquet formats)
+# ══════════════════════════════════════════════════════════════════════════════
+print(f"\nSTEP 2 — reading {len(target_keys)} files")
+print("━"*60)
+
+col_registry  = defaultdict(lambda: {"dtypes":[], "date_seen":set()})
+all_data_rows = []
+read_ok       = 0
+read_fail     = 0
+
+for i, (key, date_folder, mile_bucket) in enumerate(target_keys, 1):
+    if i % 10 == 0 or i == 1:
+        print(f"  [{i}/{len(target_keys)}] {date_folder}/{mile_bucket}")
+    try:
+        # ── read raw bytes ────────────────────────────────────────────────
+        raw = s3.get_object(Bucket=BUCKET, Key=key)["Body"].read()
+        if len(raw) < 100:
+            print(f"    SKIP too small ({len(raw)} bytes): {key.split('/')[-1]}")
+            read_fail += 1
+            continue
+
+        buf = BytesIO(raw)
+        pf  = pq.ParquetFile(buf)
+
+        print(f"    file rows={pf.metadata.num_rows} "
+              f"cols={len(pf.schema_arrow)} "
+              f"rowgroups={pf.metadata.num_row_groups}")
+
+        if pf.metadata.num_rows == 0:
+            print(f"    SKIP 0 rows")
+            read_fail += 1
+            continue
+
+        # ── METHOD 1: iter_batches ────────────────────────────────────────
+        df = None
+        try:
+            batch = next(pf.iter_batches(batch_size=ROWS_PER_FILE))
+            df    = batch.to_pandas()
+            print(f"    method1 (iter_batches): {len(df)} rows")
+        except Exception as e1:
+            print(f"    method1 failed: {e1}")
+
+        # ── METHOD 2: read full table ─────────────────────────────────────
+        if df is None or df.empty:
+            try:
+                buf.seek(0)
+                table = pq.read_table(buf)
+                df    = table.to_pandas().head(ROWS_PER_FILE)
+                print(f"    method2 (read_table): {len(df)} rows")
+            except Exception as e2:
+                print(f"    method2 failed: {e2}")
+
+        # ── METHOD 3: read row group 0 directly ──────────────────────────
+        if df is None or df.empty:
+            try:
+                buf.seek(0)
+                rg = pf.read_row_group(0)
+                df = rg.to_pandas().head(ROWS_PER_FILE)
+                print(f"    method3 (read_row_group): {len(df)} rows")
+            except Exception as e3:
+                print(f"    method3 failed: {e3}")
+
+        # ── METHOD 4: pandas read_parquet ─────────────────────────────────
+        if df is None or df.empty:
+            try:
+                buf.seek(0)
+                df = pd.read_parquet(buf).head(ROWS_PER_FILE)
+                print(f"    method4 (pd.read_parquet): {len(df)} rows")
+            except Exception as e4:
+                print(f"    method4 failed: {e4}")
+
+        if df is None or df.empty:
+            print(f"    SKIP all 4 methods failed")
+            read_fail += 1
+            continue
+
+        # ── flatten and collect rows ──────────────────────────────────────
+        for record in df.to_dict("records"):
+            flat = flatten_record(record)
+            flat["_date_folder"] = date_folder
+            flat["_mile_bucket"] = mile_bucket
+            all_data_rows.append(flat)
+
+        # ── collect schema ────────────────────────────────────────────────
+        for col_name, dtype_str in flatten_arrow(pf.schema_arrow):
+            col_registry[col_name]["dtypes"].append(dtype_str)
+            col_registry[col_name]["date_seen"].add(date_folder)
+
+        read_ok += 1
+
+    except Exception as e:
+        print(f"    ERROR {key.split('/')[-1]}: {e}")
+        read_fail += 1
+        continue
+
+print(f"\n  Files read OK  : {read_ok}")
+print(f"  Files failed   : {read_fail}")
+print(f"  Rows collected : {len(all_data_rows):,}")
+print(f"  Columns found  : {len(col_registry):,}")
+
+# ── show first row so you can see what came back ──────────────────────────────
+if all_data_rows:
+    print(f"\n  First row sample:")
+    first = all_data_rows[0]
+    for k, v in list(first.items())[:10]:
+        print(f"    {k:40s} = {str(v)[:80]}")
+else:
+    print("""
+  ✗ STILL 0 rows — paste the output above here and share it
+    The method1/method2/method3/method4 lines will show exactly where it fails
+  """)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import boto3
 import pyarrow as pa
 import pyarrow.parquet as pq
