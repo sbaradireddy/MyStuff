@@ -1,4 +1,124 @@
 # ══════════════════════════════════════════════════════════════════════════════
+# DEEP DIAGNOSTIC — run this on just ONE file to see exact error
+# ══════════════════════════════════════════════════════════════════════════════
+import boto3
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pandas as pd
+from io import BytesIO
+
+BUCKET = "pske-stg-maintenance"
+s3     = boto3.client("s3")
+
+# ── grab the very first key from target_keys ─────────────────────────────────
+test_key, test_date, test_mile = target_keys[0]
+print(f"Testing file: {test_key}")
+print(f"Date folder : {test_date}")
+print(f"Mile bucket : {test_mile}")
+print("━"*60)
+
+# ── 1. raw bytes ──────────────────────────────────────────────────────────────
+print("\n[1] Reading raw bytes ...")
+try:
+    response = s3.get_object(Bucket=BUCKET, Key=test_key)
+    raw      = response["Body"].read()
+    print(f"  ✓ bytes read : {len(raw):,}")
+    print(f"  Content-Type : {response.get('ContentType','unknown')}")
+    print(f"  First 8 bytes (parquet magic = PAR1): {raw[:8]}")
+    if raw[:4] == b'PAR1':
+        print("  ✓ Valid parquet magic bytes")
+    else:
+        print("  ✗ NOT a parquet file — wrong magic bytes")
+        print(f"    First 100 bytes: {raw[:100]}")
+except Exception as e:
+    print(f"  ✗ S3 read failed: {e}")
+    raw = None
+
+# ── 2. PyArrow open ───────────────────────────────────────────────────────────
+if raw:
+    print("\n[2] Opening with PyArrow ...")
+    try:
+        buf = BytesIO(raw)
+        pf  = pq.ParquetFile(buf)
+        print(f"  ✓ Opened OK")
+        print(f"  num_rows       : {pf.metadata.num_rows}")
+        print(f"  num_row_groups : {pf.metadata.num_row_groups}")
+        print(f"  num_columns    : {len(pf.schema_arrow)}")
+        print(f"\n  Schema fields:")
+        for field in pf.schema_arrow:
+            print(f"    {field.name:40s} {field.type}")
+    except Exception as e:
+        print(f"  ✗ PyArrow open failed: {e}")
+        pf = None
+
+# ── 3. read actual data ───────────────────────────────────────────────────────
+    if pf:
+        print("\n[3] Reading data rows ...")
+
+        # try 1: iter_batches
+        try:
+            buf.seek(0)
+            batch = next(pf.iter_batches(batch_size=3))
+            df    = batch.to_pandas()
+            print(f"  ✓ iter_batches: {len(df)} rows, {len(df.columns)} cols")
+            print(df.head(3).to_string())
+        except Exception as e:
+            print(f"  ✗ iter_batches: {e}")
+
+        # try 2: read_table
+        try:
+            buf.seek(0)
+            df = pq.read_table(buf).to_pandas().head(3)
+            print(f"  ✓ read_table  : {len(df)} rows, {len(df.columns)} cols")
+            print(df.head(3).to_string())
+        except Exception as e:
+            print(f"  ✗ read_table  : {e}")
+
+        # try 3: pandas
+        try:
+            buf.seek(0)
+            df = pd.read_parquet(buf)
+            print(f"  ✓ pd.read_parquet: {len(df)} rows, {len(df.columns)} cols")
+            print(df.head(3).to_string())
+        except Exception as e:
+            print(f"  ✗ pd.read_parquet: {e}")
+
+        # try 4: read row group directly
+        try:
+            buf.seek(0)
+            pf2 = pq.ParquetFile(buf)
+            rg  = pf2.read_row_group(0)
+            df  = rg.to_pandas()
+            print(f"  ✓ read_row_group: {len(df)} rows, {len(df.columns)} cols")
+            print(df.head(3).to_string())
+        except Exception as e:
+            print(f"  ✗ read_row_group: {e}")
+
+print("\n" + "━"*60)
+print("Share everything printed above")
+print("━"*60)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+══════════════════════════════════════════════════════════════════════════════
 # STEP 2 — fixed read (handles all parquet formats)
 # ══════════════════════════════════════════════════════════════════════════════
 print(f"\nSTEP 2 — reading {len(target_keys)} files")
