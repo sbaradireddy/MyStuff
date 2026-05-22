@@ -28,3 +28,73 @@ df = (spark.read
       .parquet(SRC))
 
 print("Loaded columns:", len(df.columns), "| rows:", df.count())
+
+
+def base_signal(colname):
+    """resultdata_enginespeed_154 -> enginespeed"""
+    return re.sub(r"_\d+$", "", colname.replace("resultdata_", ""))
+
+# Distinct measurement names actually present
+groups = [r[0] for r in df.select(MEAS_COL).distinct().collect() if r[0] is not None]
+print("Measurement groups:", groups)
+
+# Metadata columns we keep on every row (adjust to taste)
+KEEP = [c for c in df.columns
+        if c in (MEAS_COL, "metadata_vin", "metadata_vehicleid",
+                 "metadata_teststepid", "metadata_start", "metadata_end")]
+
+long_parts = []
+for g in groups:
+    gdf = df.filter(F.col(MEAS_COL) == g)
+
+    # Within this group, find sensor columns that are actually populated
+    signal_cols = [c for c in gdf.columns if c.startswith("resultdata_")]
+    # Drop all-null columns for this group (they belong to other schemas)
+    non_null = [c for c, n in
+                gdf.select([F.count(F.col(c)).alias(c) for c in signal_cols])
+                   .first().asDict().items() if n > 0]
+    if not non_null:
+        continue
+
+    # CRITICAL: cast every value to string so stack() has one common type.
+    # (numeric/bool/string mix would otherwise fail)
+    casted = [F.col(c).cast("string").alias(c) for c in non_null]
+    gdf2 = gdf.select(*KEEP, *casted)
+
+    pairs = ",".join([f"'{c}', `{c}`" for c in non_null])
+    expr  = f"stack({len(non_null)}, {pairs}) as (signal_col, signal_value)"
+
+    part = (gdf2.select(*KEEP, F.expr(expr))
+                .filter(F.col("signal_value").isNotNull())
+                .withColumn("signal_name",
+                            F.regexp_replace(
+                                F.regexp_replace(F.col("signal_col"), r"^resultdata_", ""),
+                                r"_\d+$", ""))
+                .withColumnRenamed(MEAS_COL, "measurement_name"))
+    long_parts.append(part)
+
+long_df = reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True), long_parts)
+long_df.cache()
+print("Unpivoted rows:", long_df.count())
+
+
+# -------- DETAIL CSV (sharded; partitioned by measurement_name) --------
+(long_df.write.mode("overwrite")
+   .option("header", "true")
+   .partitionBy("measurement_name")
+   .csv(OUT_DETAIL))
+
+# -------- SUMMARY CSV (matches your 01_measurement_name_counts.csv) --------
+total = long_df.count()
+summary = (long_df.groupBy("measurement_name")
+           .agg(F.count("*").alias("row_count"))
+           .withColumn("pct", F.round(F.col("row_count") / total * 100, 1))
+           .orderBy(F.desc("row_count")))
+summary = summary.withColumn(
+    "rank", F.row_number().over(
+        __import__("pyspark.sql.window", fromlist=["Window"]).Window.orderBy(F.desc("row_count"))))
+
+# coalesce(1) => single CSV file (summary is small, so this is safe)
+(summary.coalesce(1).write.mode("overwrite")
+   .option("header", "true").csv(OUT_SUMMARY))
+summary.show(truncate=False)
