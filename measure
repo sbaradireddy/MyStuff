@@ -1,0 +1,36 @@
+# --- Glue interactive session setup ---
+%idle_timeout 30
+%glue_version 4.0
+%worker_type G.1X
+%number_of_workers 5
+
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from pyspark.sql.functions import col
+
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+
+# --- Config ---
+S3_PATH    = "s3://pske-stg-maintenance/projects/ard-iot-data/ps.NA_PENSKE_TRIAL.measurements.results/20260521/020000/"
+OUTPUT_PATH = "s3://pske-stg-maintenance/projects/ard-iot-data/filtered_sensorsignals/"
+COLUMN     = "metadata_measurementconfigurationname"
+TARGET     = "Penske_FL_ExtendedTesting_Measurement_SensorSignals"
+
+# Read parquet, keep only the one column, filter to the highlighted value.
+result = (
+    spark.read.option("mergeSchema", "true").parquet(S3_PATH)
+    .select(col(COLUMN))
+    .filter(col(COLUMN) == TARGET)
+)
+
+print("Matching rows:", result.count())
+
+# Write output to S3 (single file). Use mode="append" if you don't want to overwrite.
+(result.coalesce(1)
+ .write
+ .mode("overwrite")
+ .parquet(OUTPUT_PATH))
+
+print("Written to:", OUTPUT_PATH)
