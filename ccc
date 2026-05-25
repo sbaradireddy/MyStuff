@@ -1,0 +1,64 @@
+import re, boto3
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from pyspark.sql import functions as F
+
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+spark.conf.set("spark.sql.codegen.wholeStage", "false")
+
+BUCKET      = "pske-stg-maintenance"
+PREFIX      = "projects/ard-iot-data/ps.NA_PENSKE_TRIAL.measurements.results/20260521/020000/"
+OUTPUT_PATH = "s3://pske-stg-maintenance/projects/ard-iot-data/filtered_sensorsignals_csv/"
+COLUMN      = "metadata_measurementconfigurationname"
+TARGET      = "Penske_FL_ExtendedTesting_Measurement_SensorSignals"
+BATCH       = 20
+
+s3, keys, token = boto3.client("s3"), [], None
+while True:
+    kw = dict(Bucket=BUCKET, Prefix=PREFIX)
+    if token: kw["ContinuationToken"] = token
+    r = s3.list_objects_v2(**kw)
+    keys += [f"s3://{BUCKET}/{o['Key']}" for o in r.get("Contents", []) if o["Key"].endswith(".parquet")]
+    token = r.get("NextContinuationToken")
+    if not token: break
+print("Files:", len(keys))
+
+all_cols = spark.read.option("mergeSchema", "true").parquet(*keys).columns
+pat = re.compile(r'^(.*?)(\d+)$')
+groups, statics = {}, []
+for c in all_cols:
+    m = pat.match(c)
+    if m: groups.setdefault(m.group(1).strip(), {})[int(m.group(2))] = c
+    else: statics.append(c)
+series   = {b: m for b, m in groups.items() if len(m) > 1}
+statics += [next(iter(m.values())) for b, m in groups.items() if len(m) == 1]
+clean    = {b: re.sub(r'\s+', '', b) for b in series}
+all_idx  = sorted({i for m in series.values() for i in m})
+raw_needed = statics + [series[b][i] for b in series for i in series[b]]
+out_order  = statics + ["sample_index"] + [clean[b] for b in series]
+print("series:", len(series), "indices:", len(all_idx), "statics:", len(statics))
+
+mode = "overwrite"
+for start in range(0, len(keys), BATCH):
+    df = (spark.read.option("mergeSchema", "true").parquet(*keys[start:start+BATCH])
+            .filter(F.col(COLUMN) == TARGET))
+    if not df.head(1):
+        continue
+    have = set(df.columns)
+    for c in raw_needed:
+        if c not in have:
+            df = df.withColumn(c, F.lit(None))
+    arr = F.array(*[
+        F.struct(F.lit(i).alias("sample_index"),
+                 *[(F.col(f"`{series[b][i]}`") if i in series[b] else F.lit(None)).alias(clean[b]) for b in series])
+        for i in all_idx])
+    out = (df.withColumn("_s", F.explode(arr))
+             .select(*[F.col(f"`{c}`") for c in statics], F.col("_s.*"))
+             .select(*[F.col(f"`{c}`") for c in out_order]))
+    out.write.mode(mode).option("header", "true").csv(OUTPUT_PATH)
+    mode = "append"
+    print("batch", start, "done")
+
+print("DONE ->", OUTPUT_PATH)
