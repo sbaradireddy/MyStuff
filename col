@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""
+Split a wide vehicle-IoT CSV into a star schema:
+
+  1. metadata table  -> one row per measurement (vehicle/device/test context)
+  2. readings table  -> long format: one row per (record, signal, sample)
+
+Why this shape:
+  Columns like  resultdata_enginespeed_154  are NOT distinct fields. The
+  trailing number (154) is a SAMPLE INDEX, so the column decodes to:
+        category = resultdata    signal = enginespeed
+        index    = 154           value  = 1331.0
+  Unpivoting (melting) these into rows means a varying number of columns
+  per file stops mattering -- extra samples become extra rows, never new
+  columns -- and empty cells are simply dropped instead of bloating things.
+
+Usage:
+    python split_iot.py input.csv
+    python split_iot.py ./folder_of_csvs/                 # every *.csv
+    python split_iot.py input.csv -o ./out --excel --parquet
+    python split_iot.py huge.csv --chunksize 5000         # stream big files
+
+Outputs (CSV always):
+    <out>/metadata.csv
+    <out>/readings.csv
+"""
+
+import argparse
+from pathlib import Path
+
+import pandas as pd
+
+RESULT_PREFIX = "resultdata_"
+
+# columns that look like ids, in priority order, used to key each record
+ID_CANDIDATES = (
+    "metadata_measurementjobresultid",
+    "metadata_bootcycleid",
+    "metadata_teststepid",
+)
+
+
+def make_record_id(df: pd.DataFrame, offset: int) -> pd.Series:
+    """Stable unique id per row, falling back to a positional id if none exist."""
+    rid = pd.Series(pd.NA, index=df.index, dtype="object")
+    for col in ID_CANDIDATES:
+        if col in df.columns:
+            rid = rid.fillna(df[col])
+    missing = rid.isna()
+    if missing.any():
+        rid.loc[missing] = [f"record_{offset + i}" for i in range(missing.sum())]
+    return rid.astype(str)
+
+
+def split_frame(df: pd.DataFrame, offset: int):
+    """Return (metadata_rows, readings_long) for a wide dataframe."""
+    df = df.copy()
+    df["record_id"] = make_record_id(df, offset)
+
+    result_cols = [c for c in df.columns if c.startswith(RESULT_PREFIX)]
+    meta_cols = [c for c in df.columns
+                 if c not in result_cols and c != "record_id"]
+
+    # ---- metadata: one row per record ----
+    metadata = df[["record_id"] + meta_cols]
+
+    # ---- readings: unpivot the wide signal columns into long form ----
+    if result_cols:
+        long = df.melt(
+            id_vars=["record_id"],
+            value_vars=result_cols,
+            var_name="_col",
+            value_name="value",
+        )
+        long = long.dropna(subset=["value"])           # skip samples not present
+        bodies = long["_col"].str.slice(len(RESULT_PREFIX))   # "enginespeed_154"
+        parts = bodies.str.extract(r"^(?P<signal_name>.+)_(?P<sample_index>\d+)$")
+        long["signal_name"] = parts["signal_name"].fillna(bodies)   # scalar fallback
+        long["sample_index"] = pd.to_numeric(
+            parts["sample_index"], errors="coerce"
+        ).astype("Int64")
+        # values come in as text; make numeric where possible, keep raw otherwise
+        num = pd.to_numeric(long["value"], errors="coerce")
+        long["value"] = num.where(num.notna(), long["value"])
+        readings = long[["record_id", "signal_name", "sample_index", "value"]]
+    else:
+        readings = pd.DataFrame(
+            columns=["record_id", "signal_name", "sample_index", "value"]
+        )
+
+    return metadata, readings
+
+
+def iter_frames(path: Path, chunksize):
+    """Yield dataframe chunks from one CSV (whole file if chunksize is None).
+
+    Everything is read as text so all-digit fields like VIN or job ids are
+    preserved exactly (pandas would otherwise turn 11111111111111111 into a
+    float in scientific notation). Reading values are cast to numbers later.
+    """
+    if chunksize:
+        yield from pd.read_csv(path, dtype=str, chunksize=chunksize, low_memory=False)
+    else:
+        yield pd.read_csv(path, dtype=str, low_memory=False)
+
+
+def process(paths, out_dir: Path, write_excel: bool, write_parquet: bool, chunksize):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    meta_path, read_path = out_dir / "metadata.csv", out_dir / "readings.csv"
+
+    streaming = bool(chunksize)
+    meta_acc, read_acc = [], []          # used only in non-streaming mode
+    meta_written = read_written = False
+    n_records = 0
+
+    for p in paths:
+        for chunk in iter_frames(p, chunksize):
+            meta, reads = split_frame(chunk, offset=n_records)
+            n_records += len(meta)
+            if streaming:
+                meta.to_csv(meta_path, mode="a", header=not meta_written, index=False)
+                reads.to_csv(read_path, mode="a", header=not read_written, index=False)
+                meta_written = read_written = True
+            else:
+                meta_acc.append(meta)
+                read_acc.append(reads)
+
+    if streaming:
+        meta_df = pd.read_csv(meta_path, low_memory=False)
+        read_df = pd.read_csv(read_path, low_memory=False)
+    else:
+        meta_df = pd.concat(meta_acc, ignore_index=True) if meta_acc else pd.DataFrame()
+        read_df = pd.concat(read_acc, ignore_index=True) if read_acc else pd.DataFrame()
+        if not read_df.empty:
+            read_df = read_df.sort_values(
+                ["record_id", "signal_name", "sample_index"], na_position="last"
+            ).reset_index(drop=True)
+        meta_df.to_csv(meta_path, index=False)
+        read_df.to_csv(read_path, index=False)
+
+    if write_parquet:
+        meta_df.to_parquet(out_dir / "metadata.parquet", index=False)
+        read_df.to_parquet(out_dir / "readings.parquet", index=False)
+
+    if write_excel:
+        with pd.ExcelWriter(out_dir / "iot_star_schema.xlsx") as xl:
+            meta_df.to_excel(xl, sheet_name="metadata", index=False)
+            if len(read_df) <= 1_000_000:
+                read_df.to_excel(xl, sheet_name="readings", index=False)
+            else:
+                read_df.head(1_000_000).to_excel(
+                    xl, sheet_name="readings_truncated", index=False)
+                print("WARNING: readings exceed Excel's row limit; sheet truncated. "
+                      "Use the CSV/Parquet for the full set.")
+
+    print(f"Records processed : {n_records}")
+    print(f"Metadata columns  : {len(meta_df.columns)}")
+    print(f"Reading rows      : {len(read_df):,}")
+    if not read_df.empty:
+        print(f"Distinct signals  : {read_df['signal_name'].nunique()} "
+              f"-> {sorted(read_df['signal_name'].unique())}")
+    print(f"Written to        : {out_dir.resolve()}")
+    return meta_df, read_df
+
+
+def collect_inputs(target: Path):
+    if target.is_dir():
+        files = sorted(target.glob("*.csv"))
+        if not files:
+            raise SystemExit(f"No .csv files found in {target}")
+        return files
+    return [target]
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Split a wide IoT CSV into a star schema.")
+    ap.add_argument("input", type=Path, help="CSV file or folder of CSV files")
+    ap.add_argument("-o", "--out", type=Path, default=Path("./out"),
+                    help="output directory (default: ./out)")
+    ap.add_argument("--excel", action="store_true", help="also write an .xlsx")
+    ap.add_argument("--parquet", action="store_true", help="also write .parquet")
+    ap.add_argument("--chunksize", type=int, default=None,
+                    help="read CSV in row-chunks of this size (for very large files)")
+    args = ap.parse_args()
+    process(collect_inputs(args.input), args.out,
+            args.excel, args.parquet, args.chunksize)
+
+
+if __name__ == "__main__":
+    main()
