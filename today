@@ -1,0 +1,68 @@
+from awsglue.context import GlueContext
+from pyspark.context import SparkContext
+from pyspark.sql import functions as F
+from pyspark.sql.window import Window
+
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+
+# ---------------- CONFIG ----------------
+SRC      = "s3://pske-stg-maintenance/projects/ard-iot-data-compacted/"
+OUT_LONG = "s3://pske-stg-maintenance/analytics/measurement_signal_long/"
+OUT_SUM  = "s3://pske-stg-maintenance/analytics/measurement_summary/"
+MEAS     = "metadata_measurementconfigurationname"
+# ----------------------------------------
+
+# 1. READ
+df = (spark.read
+      .option("mergeSchema", "false")
+      .option("recursiveFileLookup", "true")
+      .parquet(SRC))
+df = df.withColumnRenamed(MEAS, "measurement_name")
+
+# 2. DETECT signal columns (everything that is NOT metadata and NOT the measurement name)
+signal_cols = [c for c in df.columns
+               if c != "measurement_name" and not c.startswith("metadata_")]
+print("Signal columns detected:", len(signal_cols))
+print("Examples:", signal_cols[:10])
+assert signal_cols, "No signal columns found - check df.columns and adjust the filter."
+
+# 3. UNPIVOT wide -> long  (cast all to string so stack() has one common type)
+casted = [F.col(c).cast("string").alias(c) for c in signal_cols]
+wide   = df.select("measurement_name", *casted)
+
+pairs = ",".join([f"'{c}', `{c}`" for c in signal_cols])
+expr  = f"stack({len(signal_cols)}, {pairs}) as (signal_col, signal_value)"
+
+long_df = (wide.select("measurement_name", F.expr(expr))
+           .filter(F.col("signal_value").isNotNull())
+           .withColumn("signal_name",
+                       F.regexp_replace(
+                           F.regexp_replace(F.col("signal_col"), r"^resultdata_", ""),
+                           r"_\d+$", "")))
+
+print("Sample of unpivoted data:")
+long_df.show(10, truncate=False)
+
+# 4. WRITE long detail (partitioned by measurement_name)
+(long_df.write.mode("overwrite")
+   .option("header", "true")
+   .partitionBy("measurement_name")
+   .csv(OUT_LONG))
+
+# 5. WRITE summary (count / pct / rank per measurement_name) - single CSV
+total = df.count()
+summary = (df.groupBy("measurement_name")
+           .agg(F.count("*").alias("row_count"))
+           .withColumn("pct", F.round(F.col("row_count")/total*100, 1))
+           .orderBy(F.desc("row_count"))
+           .withColumn("rank", F.row_number().over(Window.orderBy(F.desc("row_count")))))
+
+(summary.coalesce(1).write.mode("overwrite")
+   .option("header", "true").csv(OUT_SUM))
+
+print("Summary:")
+summary.show(truncate=False)
+print("Long detail ->", OUT_LONG)
+print("Summary     ->", OUT_SUM)
