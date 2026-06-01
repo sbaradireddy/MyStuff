@@ -1,0 +1,193 @@
+# =============================================================================
+# AWS Glue Notebook — Per-VIN time-windowed sensor aggregation
+# Source : Parquet on S3   ->   Output : CSV on S3
+# Windows: 15 minutes / 1 hour / 1 day, grouped by metaData_vehicleId + metaData_vin
+#
+# HOW TO USE
+#   - Glue Interactive Notebook: paste each "# %% CELL" block into its own cell.
+#   - Glue Job script: paste the whole file (the magics are ignored as comments).
+# =============================================================================
+
+
+# %% CELL 1 — Glue interactive session config (notebook only)
+%idle_timeout 60
+%glue_version 4.0
+%worker_type G.1X
+%number_of_workers 5
+# Glue 4.0 = Spark 3.3 (uses max_by/min_by, fine). Bump to 5.0 for Spark 3.5.
+
+
+# %% CELL 2 — Imports + Spark/Glue context
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from pyspark.sql import functions as F
+from pyspark.sql.types import NumericType, TimestampType, StringType
+
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+
+
+# %% CELL 3 — Parameters
+# In a Job, pass these as --SRC_PARQUET / --DST_CSV / --TS_COL job parameters.
+# In a notebook, the try/except falls back to the defaults below — EDIT THESE.
+try:
+    args = getResolvedOptions(
+        sys.argv,
+        ["JOB_NAME", "SRC_PARQUET", "DST_CSV", "TS_COL"],
+    )
+    job.init(args["JOB_NAME"], args)
+    SRC_PARQUET = args["SRC_PARQUET"]
+    DST_CSV     = args["DST_CSV"]
+    TS_COL      = args.get("TS_COL") or "auto"
+except Exception:
+    SRC_PARQUET = "s3://YOUR-BUCKET/path/to/source/parquet/"
+    DST_CSV     = "s3://YOUR-BUCKET/path/to/output/"      # subfolders /15min /1hour /1day are created
+    TS_COL      = "auto"   # set to e.g. "metaData_start" to force a specific timestamp column
+
+GROUP_COLS = ["metaData_vehicleId", "metaData_vin"]   # one analysis row per VIN per window
+WINDOWS = {                                            # label -> Spark window duration string
+    "15min": "15 minutes",
+    "1hour": "1 hour",
+    "1day":  "1 day",
+}
+
+print("Source :", SRC_PARQUET)
+print("Output :", DST_CSV)
+
+
+# %% CELL 4 — Read source Parquet
+df = spark.read.parquet(SRC_PARQUET)
+print("Rows:", df.count())
+df.printSchema()
+
+
+# %% CELL 5 — Resolve the event-timestamp column and cast it to TimestampType
+# Auto-pick the first matching candidate if TS_COL == "auto".
+def resolve_timestamp(df, requested):
+    cols = df.columns
+    if requested != "auto":
+        if requested not in cols:
+            raise ValueError(f"TS_COL '{requested}' not found. Available: {cols}")
+        return requested
+    candidates = [
+        "timestamp", "event_time", "eventTime", "time", "ts",
+        "signal_time", "reading_time", "metaData_start", "metaData_uploaded",
+        "metaData_end", "metaData_exported", "metaData_lastPackage",
+    ]
+    for c in candidates:
+        if c in cols:
+            print(f"[auto] Using '{c}' as the event timestamp.")
+            return c
+    raise ValueError(
+        "Could not auto-detect a timestamp column. "
+        f"Set TS_COL explicitly. Available columns: {cols}"
+    )
+
+TS_COL = resolve_timestamp(df, TS_COL)
+
+# Normalize the timestamp to a real TimestampType regardless of how it's stored.
+ts_field = df.schema[TS_COL].dataType
+if isinstance(ts_field, TimestampType):
+    df = df.withColumn(TS_COL, F.col(TS_COL))
+elif isinstance(ts_field, NumericType):
+    # Heuristic: epoch milliseconds vs seconds (ms values are ~1e12+).
+    df = df.withColumn(
+        TS_COL,
+        F.when(F.col(TS_COL) > F.lit(1_000_000_000_000),
+               F.to_timestamp(F.col(TS_COL) / F.lit(1000)))
+         .otherwise(F.to_timestamp(F.col(TS_COL)))
+    )
+else:
+    # String / ISO-8601 etc. Spark parses common formats automatically.
+    df = df.withColumn(TS_COL, F.to_timestamp(F.col(TS_COL)))
+
+# Drop rows we can't place on the timeline or attribute to a VIN.
+df = df.dropna(subset=[TS_COL] + GROUP_COLS)
+
+
+# %% CELL 6 — Classify columns: numeric sensor signals vs. descriptive metadata
+reserved = set(GROUP_COLS + [TS_COL])
+numeric_cols, meta_cols = [], []
+for f in df.schema.fields:
+    if f.name in reserved:
+        continue
+    if isinstance(f.dataType, NumericType):
+        numeric_cols.append(f.name)   # rpm, engine speed, battery, pedal, engine oil, ...
+    else:
+        meta_cols.append(f.name)      # device ids, config names, vin-level descriptors, ...
+
+print("Numeric signals aggregated:", numeric_cols)
+print("Metadata kept (first value):", meta_cols)
+
+
+# %% CELL 7 — Build the aggregation expressions
+def build_aggregations(numeric_cols, meta_cols, ts_col):
+    aggs = [
+        F.count(F.lit(1)).alias("record_count"),
+        F.min(ts_col).alias("first_reading_ts"),
+        F.max(ts_col).alias("last_reading_ts"),
+    ]
+    for c in numeric_cols:
+        aggs += [
+            F.avg(c).alias(f"{c}_avg"),
+            F.min(c).alias(f"{c}_min"),
+            F.max(c).alias(f"{c}_max"),
+            F.stddev(c).alias(f"{c}_stddev"),
+            F.expr(f"min_by(`{c}`, `{ts_col}`)").alias(f"{c}_first"),  # value at window start
+            F.expr(f"max_by(`{c}`, `{ts_col}`)").alias(f"{c}_last"),   # value at window end
+        ]
+    # Keep one representative value per group for descriptive columns.
+    for c in meta_cols:
+        aggs.append(F.first(c, ignorenulls=True).alias(c))
+    return aggs
+
+
+# %% CELL 8 — One function that produces a windowed result for any granularity
+def aggregate_window(df, duration, group_cols, ts_col, numeric_cols, meta_cols):
+    aggs = build_aggregations(numeric_cols, meta_cols, ts_col)
+    res = (
+        df.groupBy(*group_cols, F.window(F.col(ts_col), duration).alias("w"))
+          .agg(*aggs)
+          .withColumn("window_start", F.col("w.start"))
+          .withColumn("window_end",   F.col("w.end"))
+          .drop("w")
+    )
+    front = group_cols + ["window_start", "window_end", "record_count",
+                          "first_reading_ts", "last_reading_ts"]
+    rest = [c for c in res.columns if c not in front]
+    return res.select(*front, *rest).orderBy(*group_cols, "window_start")
+
+
+# %% CELL 9 — Helper to write a single clean CSV folder per granularity
+def write_csv(df, base_path, label):
+    out = base_path.rstrip("/") + "/" + label + "/"
+    (df.coalesce(1)                       # aggregated output is small -> one CSV file
+        .write.mode("overwrite")
+        .option("header", "true")
+        .csv(out))
+    print(f"  wrote {label} -> {out}")
+    # To instead get one file per VIN, replace the line above with:
+    #   .write.mode("overwrite").partitionBy("metaData_vin").option("header","true").csv(out)
+
+
+# %% CELL 10 — Run all three granularities and write results to S3
+for label, duration in WINDOWS.items():
+    print(f"Computing {label} ({duration}) aggregation...")
+    result = aggregate_window(df, duration, GROUP_COLS, TS_COL, numeric_cols, meta_cols)
+    result.show(5, truncate=False)
+    write_csv(result, DST_CSV, label)
+
+print("Done. CSVs are under:", DST_CSV)
+
+
+# %% CELL 11 — Commit (Job runs only; harmless in a notebook)
+try:
+    job.commit()
+except Exception:
+    pass
