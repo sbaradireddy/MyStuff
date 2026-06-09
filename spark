@@ -1,1 +1,31 @@
-spark.conf.set("spark.sql.parquet.enableVectorizedReader", "false")
+
+import pyarrow as pa, pyarrow.parquet as pq, s3fs
+from pyspark.sql.functions import from_json, col
+
+COL = "resultData_EngineCoolantTemperature"
+SRC_PREFIX = SRC.replace("s3://", "").rstrip("/") + "/"   # bucket/key, no scheme
+fs = s3fs.S3FileSystem()
+
+# 1) Group files by how this column is physically stored
+arr_files, bin_files = [], []
+for f in fs.glob(SRC_PREFIX + "**/*.parquet"):
+    t = pq.ParquetFile(f, filesystem=fs).schema_arrow.field(COL).type
+    (arr_files if pa.types.is_list(t) else bin_files).append("s3://" + f)
+
+# 2) Read each group with its own schema; normalize the BINARY group to array<int>
+df_arr = spark.read.parquet(*arr_files)
+df_bin = (spark.read.parquet(*bin_files)
+            .withColumn(COL, from_json(col(COL).cast("string"), "array<int>")))
+
+# 3) Reconcile and write
+df = df_arr.unionByName(df_bin, allowMissingColumns=True)
+
+total = df.count()
+n_files = max(1, total // 2_000_000)
+print(f"rows={total:,} files={n_files}")
+
+(df.repartition(n_files)
+   .write.mode("overwrite")
+   .option("compression", "snappy")
+   .parquet(DST))
+print("Done ->", DST)
