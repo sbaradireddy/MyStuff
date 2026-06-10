@@ -1,0 +1,19 @@
+Subject: AuRA POC — quick alignment and what I need to start
+
+Hi [Name],
+
+I'm picking up development of the AuRA POC. Before I build, I want to confirm I've understood the goal and ask for the few things that will unblock me.
+
+My understanding: AuRA automates the first-pass review of repair jobs — comparing each job against what is normal for that repair type and vehicle type, and flagging anything unusual for supervisors, since manual review can't cover roughly 13 million jobs a year. The POC is job-level only, using statistical baselines for the numeric checks and AI agents with semantic search for the free-text and findings, on AWS. Please tell me if any of that is off.
+
+To get started, the four things I most need:
+
+1. Data — a representative sample of job records (with a data dictionary and access steps), plus historical data to build the baselines.
+2. Ground truth — a subject-matter expert (a supervisor or auditor) I can work with, and any record of previously flagged jobs, so I have something to build and test against.
+3. Review rules — what specifically AuRA should check for, and what counts as normal.
+4. Success criteria — what accuracy or outcome makes this POC a "go," plus the target timeline.
+
+Could we grab 30 minutes this week to confirm scope and get me data access and an SME contact? I can begin as soon as those two are in place.
+
+Thanks,
+[Your name]
