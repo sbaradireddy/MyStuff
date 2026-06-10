@@ -1,0 +1,21 @@
+Subject: Request: AuRA POC kickoff meeting
+
+Hi [Manager / team],
+
+Thanks for assigning me to the AuRA POC. I've read through the project page and have a good initial picture, and I'd like to set up a short kickoff meeting so we can align on scope and get me what I need to start building.
+
+Here is my current understanding — please correct anything that's off:
+AuRA automates the first-pass review of repair jobs. For each job it compares the parts, labour, and cost against what is normal for that repair type and vehicle type, and flags anything unusual for a Maintenance Supervisor to review. With roughly 13 million jobs a year, manual review can only cover a fraction, so AuRA scales that review. The POC focuses on job-level review (RO-level and fleet-level come later).
+
+To make the meeting productive, I'd suggest we cover:
+1. Scope & success — confirm the job-level focus; what outcome or accuracy would make this POC a "go"; target timeline.
+2. Data — how I get a representative sample (and historical data), what fields a job record has / a data dictionary, and any access or security steps.
+3. Subject-matter expert — who I can work with (a supervisor or auditor) to define "normal vs problematic" and label some examples.
+4. Review rules — what specifically AuRA should check for (errors, unusual charges, fraud signals).
+5. Environment & constraints — AWS access, any budget envelope, and security/compliance considerations.
+6. Existing assets — any prototype code, models, or documentation I can build on.
+
+Could we find 30–45 minutes in the next few days? Ideally with yourself, the product owner, and a maintenance supervisor if possible. Once I have data access and a named SME, I can begin straight away.
+
+Thanks,
+[Your name]
