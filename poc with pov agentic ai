@@ -1,0 +1,241 @@
+# AuRA — Automated Repair Assistant
+## End-to-End Proof of Concept (POC) Plan
+
+*Job-level repair-job review for fleet maintenance, built on AWS using AI agents, semantic search, an ontology, and (later) a knowledge graph.*
+
+---
+
+## 1. Point of view (POV) — why this, and why now
+
+Today, Maintenance Supervisors (MS) review repair jobs by hand — checking whether the parts used, labour hours, and cost are reasonable, and whether anything looks like an error or fraud. With roughly **13 million jobs per year**, reviewing every job manually is impossible, so supervisors spot-check a small fraction. The consequence is simple: most errors and anomalies are never seen.
+
+The bet behind AuRA is that the *first pass* of this review can be automated. AuRA reads each job record, compares it against what is normal for that repair type on that vehicle type, and produces a structured report with a quality score and specific findings. The supervisor stops searching for problems and instead reviews a short, ranked list of jobs that AuRA has flagged, with the reasons attached.
+
+The strategic value is threefold. **Coverage** goes from a few percent of jobs to effectively all of them. **Consistency** improves, because every job is judged against the same baseline rather than each supervisor's memory. And **supervisor time** shifts from hunting to deciding — they spend their hours on the jobs that actually warrant it.
+
+This document covers the job-level pilot only. RO-level and fleet-level review are deliberately out of scope for the POC and are addressed in the roadmap at the end.
+
+---
+
+## 2. Scope of the POC
+
+**In scope**
+- Job-level validation of individual repair job records.
+- Numeric reasonableness checks (parts, labour hours, cost vs. norms for repair-type × vehicle-type).
+- Free-text understanding of the work description.
+- A structured validation report per job: quality score, list of findings, and supporting evidence.
+- A reviewer interface (or report feed) for a small number of supervisors at selected locations.
+
+**Out of scope (deferred to later phases)**
+- RO-level review (patterns across all jobs on one Repair Order, e.g. job stacking).
+- Fleet-level trend analysis (across units, locations, technicians over time).
+- A full production knowledge graph (the data is *modelled* to be graph-ready, but graph traversal is not the pilot's job).
+- Automated actions — AuRA recommends; humans decide.
+
+**POC success criteria (define exact numbers with your supervisors before starting)**
+- **Catch rate (recall):** AuRA flags ≥ X% of the issues that auditors independently find on a labelled sample.
+- **Precision / false-alarm rate:** no more than Y% of flagged jobs are dismissed by supervisors as not worth attention.
+- **Explainability:** for flagged jobs, supervisors agree the stated reason is understandable and actionable.
+- **Throughput & cost:** the per-job processing cost and latency are acceptable when projected to 13M jobs/year.
+- **Adoption signal:** pilot supervisors say the flag list saves time versus their current process.
+
+---
+
+## 3. The approach (detailed)
+
+### 3.1 The core idea
+For each job, AuRA answers one question in several parts: *is this job normal for this kind of repair on this kind of vehicle?* "Normal" is defined by the distribution of comparable historical jobs plus a set of business rules. Anything that falls outside normal becomes a finding, and the findings roll up into a quality score.
+
+### 3.2 A hybrid design — not "agents do everything"
+The most important design decision is to **split numeric anomaly detection from language reasoning**:
+
+- **Numeric checks → statistics / ML.** "Is £/hours/parts-count reasonable?" is a distribution question. Comparing a job against the cost-and-labour distribution of similar past jobs (and flagging outliers) is cheaper, more consistent, and more defensible with a statistical or ML model than with a language model trying to eyeball numbers.
+- **Language and judgement → AI agents.** Reading the messy free-text description, reconciling it with the parts/labour, spotting fraud-style narratives, and writing a clear, human-readable finding is what the agents are genuinely good at.
+
+A robust AuRA is this hybrid. The agents orchestrate the checks and assemble the report; the statistical layer does the heavy numeric lifting.
+
+### 3.3 Role of each technique
+- **Ontology (build now, lightweight).** The shared definition of a Job, Repair Order, Vehicle, Part, Labour line, Technician, Repair type — plus the expectations and rules ("an annual service requires these operations", "this repair type on this vehicle normally costs in this range"). Without it, "compare against normal" has no anchor. It does not need to be a heavyweight formal ontology for the pilot; a clear schema plus a rule set is enough.
+- **Semantic search (essential for the pilot).** Job records contain free text and shop-specific abbreviations. To establish "what's normal for this repair", AuRA retrieves the cluster of comparable historical jobs and standard operation definitions *by meaning*, not exact keywords. Semantic retrieval is how the right baseline reaches the agent.
+- **Agents (essential for the pilot).** A pipeline of specialised agents (one per check) coordinated by a supervisor agent that assembles the structured report and quality score. This matches AuRA's existing design.
+- **Knowledge graph (optional for the pilot, essential later).** Pure job-level review is mostly single-record. The graph pays off when the question becomes relational — RO-level job stacking, and fleet-level trends across technicians, locations and time. Model the data so it is graph-ready, but do not let the graph block the pilot.
+
+### 3.4 Decision summary
+
+| Technique | Job-level (pilot) | RO-level (future) | Fleet-level (future) |
+|---|---|---|---|
+| Ontology | Build now — foundation | Reused | Reused |
+| Semantic search | Essential | Helpful | Helpful |
+| Agents | Essential | Essential | Essential |
+| Statistical / ML baseline | Essential | Helpful | Essential |
+| Knowledge graph | Optional | Essential | Essential |
+
+---
+
+## 4. End-to-end architecture (AWS)
+
+### 4.1 Layers
+
+**Data & storage.** Repair job records are exported from the source maintenance system into **Amazon S3** (raw, then cleaned/processed). Verdicts, scores, and the audit trail are stored in **Amazon DynamoDB** or **Amazon RDS**.
+
+**Ingestion & preparation.** **AWS Glue** and **AWS Lambda** clean, normalise, and join job, vehicle, part, labour, and technician data. Free-text fields are chunked here for later embedding. Entity extraction from notes uses **Amazon Comprehend** or a **Bedrock** model.
+
+**Baselines (statistics / ML).** Historical jobs are aggregated into norms per repair-type × vehicle-type (cost, labour, part-count distributions). Built and trained in **Amazon SageMaker**; served as a lookup/scoring step.
+
+**Semantic index.** Embeddings of the free-text fields and standard operation definitions are stored for retrieval. The managed route is **Amazon Bedrock Knowledge Bases**; **Amazon OpenSearch** is the alternative for a dedicated hybrid (vector + keyword) store.
+
+**Agents.** **Amazon Bedrock Agents / AgentCore** (or the **Strands Agents** framework) run a supervisor agent plus specialist checkers (parts, labour, cost, fraud, free-text consistency). **Amazon Bedrock Guardrails** constrain outputs.
+
+**Orchestration.** **AWS Step Functions** (or SQS + Lambda) drives each job through the pipeline and fans out to high volume.
+
+**Output & review.** A reviewer UI or report feed (custom web app, or **Amazon QuickSight**) shows each job's score, findings, and evidence for supervisors to confirm or override.
+
+**Cross-cutting.** **Amazon CloudWatch** for monitoring; **AWS IAM** for access control; **AWS KMS** for encryption.
+
+### 4.2 Runtime walkthrough — one job
+1. A job record lands and is queued.
+2. The supervisor agent pulls the record and its context (vehicle, parts, labour, technician).
+3. The **baseline scorer** compares cost / labour / parts against the norms for this repair-type × vehicle-type and returns outlier scores.
+4. The **semantic retriever** fetches comparable historical jobs and the standard operation definition.
+5. Specialist agents run their checks (e.g. labour hours far above norm; part not typical for this repair; description inconsistent with parts used; fraud-pattern signal).
+6. The supervisor agent assembles a **structured report**: quality score, each finding, and the exact evidence (which labour line, which part).
+7. Guardrails validate the output; the verdict is stored.
+8. The supervisor sees the flagged job in the review feed, confirms or overrides — and that confirmation feeds evaluation.
+
+---
+
+## 5. Step-by-step POC plan (phased)
+
+**Phase 0 — Problem definition & rules (1–2 weeks).** With supervisors, write down exactly what a *good* vs *problematic* job looks like, and the concrete checks (numeric thresholds, required operations, fraud patterns such as job stacking precursors). Define the success metrics. This is the highest-leverage and most-skipped step.
+
+**Phase 1 — Data access & ontology (2–3 weeks).** Secure a representative data sample (e.g. several thousand jobs from one or two locations, across multiple repair categories). Define the ontology/schema and the rule set. Land and clean the data in S3.
+
+**Phase 2 — Baselines & semantic index (2–3 weeks).** Build the statistical norms per repair-type × vehicle-type in SageMaker. Generate embeddings and stand up the semantic index (Bedrock Knowledge Base or OpenSearch).
+
+**Phase 3 — Agent pipeline (3–4 weeks).** Build the supervisor agent and specialist checkers in Bedrock Agents / Strands, wiring the baseline scorer and semantic retriever as tools. Add Guardrails. Tune prompts against real examples.
+
+**Phase 4 — Orchestration & output (2 weeks).** Wire Step Functions to run jobs end-to-end; build the reviewer feed/UI; store verdicts and audit trail.
+
+**Phase 5 — Evaluation (2–3 weeks).** Run AuRA over a **labelled "golden" sample** that auditors have already reviewed. Measure catch rate, false-alarm rate, and explainability. Iterate on rules, baselines, and prompts.
+
+**Phase 6 — Limited pilot (4+ weeks).** Roll out to a small number of supervisors at selected locations. Collect confirm/override feedback and performance data, then refine before any broader deployment.
+
+**Indicative timeline:** roughly **14–18 weeks** for a credible POC through to a limited pilot, depending heavily on how fast clean data and supervisor time become available.
+
+---
+
+## 6. Tools & technology stack
+
+| Capability | AWS / tool options |
+|---|---|
+| Object storage (raw + processed) | Amazon S3 |
+| ETL / data prep | AWS Glue, AWS Lambda |
+| Entity extraction from text | Amazon Comprehend, or a Bedrock model |
+| Statistical / ML baselines | Amazon SageMaker |
+| Foundation models | Amazon Bedrock (incl. Anthropic Claude family) |
+| Semantic search / RAG | Amazon Bedrock Knowledge Bases; Amazon OpenSearch |
+| Knowledge graph (later) | Amazon Neptune / Neptune Analytics (GraphRAG) |
+| Agents | Amazon Bedrock Agents / AgentCore; Strands Agents framework |
+| Output safety | Amazon Bedrock Guardrails |
+| Orchestration at scale | AWS Step Functions; Amazon SQS |
+| Verdict store / audit trail | Amazon DynamoDB; Amazon RDS |
+| Reviewer dashboard | Custom web app; Amazon QuickSight |
+| Monitoring / security | Amazon CloudWatch; AWS IAM; AWS KMS |
+| Supporting frameworks | LangChain / LlamaIndex (optional), Python, boto3 |
+
+---
+
+## 7. Skills & team
+
+A POC of this kind typically needs the following roles (some can be combined on a small team):
+
+- **Domain SME — Maintenance Supervisor / auditor.** Defines what "normal" and "problematic" mean, and labels the golden dataset. Without this, the system has no ground truth.
+- **Data engineer.** S3/Glue/Lambda pipelines, data cleaning, joining job/vehicle/part/labour/technician records, handling messy real-world data.
+- **ML / data scientist.** Builds the statistical baselines and outlier scoring in SageMaker; defines anomaly thresholds.
+- **GenAI / agent engineer.** Designs the agent pipeline (Bedrock Agents / Strands), prompt engineering, retrieval design, guardrails.
+- **Cloud / MLOps engineer.** Step Functions orchestration, deployment, scaling, cost control, monitoring, IAM/security.
+- **Evaluation / QA lead.** Designs the golden dataset and the metrics; runs the evaluation harness; tracks precision/recall.
+- **Product owner / project lead.** Owns scope, success criteria, stakeholder alignment (supervisors, internal reviewers, fleet managers, leadership), and the rollout plan.
+- **Frontend engineer (part-time).** Builds the reviewer feed/UI.
+
+Underlying skills: Python and boto3; AWS solution architecture; embeddings/RAG; agent design and prompt engineering; classical ML and anomaly detection; data modelling (and graph modelling for the later phases); and evaluation methodology for AI systems.
+
+---
+
+## 8. Evaluation strategy
+
+Evaluation is what turns this from a demo into a decision. The backbone is a **golden dataset**: a sample of jobs your auditors have already reviewed and labelled (issue / no issue, and the type of issue). Run AuRA over it blind and compare.
+
+Core metrics:
+- **Recall (catch rate):** of the real issues, how many did AuRA flag?
+- **Precision:** of AuRA's flags, how many were genuine (not dismissed by supervisors)?
+- **False-alarm rate:** flagged jobs per 100 that supervisors discard — the number that determines whether they trust the tool.
+- **Explainability:** do supervisors find the stated reasons clear and actionable?
+- **Operational:** per-job latency and cost, projected to 13M/year.
+- **Time saved:** supervisor minutes per reviewed job vs. the current process.
+
+Treat the confirm/override actions from the pilot as a continuously growing labelled set that feeds the next iteration.
+
+---
+
+## 9. Pros & cons of the approach
+
+**Pros**
+- Coverage moves from a small spot-checked fraction to effectively all jobs.
+- Consistent, repeatable judgement against shared baselines.
+- Explainable findings, not a black-box score — supervisors can act on reasons.
+- Hybrid design keeps numeric checks cheap and defensible while using agents only where language reasoning is needed.
+- Modular and staged: the same foundation extends to RO-level and fleet-level later.
+- Largely managed AWS services reduce infrastructure burden.
+
+**Cons / trade-offs**
+- Real value depends on good ground truth and clean data, which are often the hardest parts.
+- Agents add cost and latency; at 13M jobs/year this must be engineered carefully (batching, model tiering, caching).
+- Free-text quality varies by shop and technician, which stresses the language components.
+- Building and maintaining the ontology and baselines is ongoing work, not one-off.
+- Over-flagging erodes trust fast; precision matters as much as recall.
+
+---
+
+## 10. Challenges, risks & mitigations
+
+| Challenge | Risk | Mitigation |
+|---|---|---|
+| Ground truth | Without labelled data, you can't prove accuracy | Have SMEs label a golden set early (Phase 0–1) |
+| Data quality | Messy, inconsistent job records degrade results | Invest in cleaning/normalisation; profile data first |
+| False positives | Over-flagging destroys supervisor trust | Tune for precision; let supervisors give feedback; rank by severity |
+| LLM hallucination | Agents invent findings | Ground every finding in retrieved evidence; use Guardrails; keep numeric checks in the stats layer |
+| Cost at scale | 13M jobs/year of agent calls is expensive | Batch processing, smaller/cheaper models for routine jobs, caching, escalate only ambiguous jobs to larger models |
+| Latency / throughput | Pipeline too slow for volume | Asynchronous batch via Step Functions/SQS; parallelism |
+| Concept drift | "Normal" changes over time | Periodically retrain baselines; monitor metrics |
+| Free-text variability | Abbreviations/shorthand confuse retrieval | Semantic search + a domain glossary; entity normalisation |
+| Adoption / trust | Supervisors ignore the tool | Explainable findings, pilot with champions, show time saved |
+| Governance & security | Sensitive operational/financial data | IAM least-privilege, KMS encryption, audit trail, Guardrails |
+| Fraud edge cases | Sophisticated fraud evades simple rules | Combine rules + outlier detection now; add graph-based pattern detection at RO/fleet stage |
+
+---
+
+## 11. Cost considerations
+
+The dominant variable cost is agent (LLM) inference at volume. Practical levers:
+- **Tier the models:** route routine, clearly-normal jobs to a small, cheap model and escalate only ambiguous ones to a larger model.
+- **Do numeric checks outside the LLM:** the statistical layer handles most jobs without a language-model call at all.
+- **Batch, don't stream:** AuRA is a back-office review, so asynchronous batch processing is far cheaper than real-time.
+- **Cache** standard operation definitions and per-repair-type baselines.
+- **Filter first:** only send jobs that fail a cheap pre-screen to the full agent pipeline.
+
+Model the per-job cost on the POC sample and multiply out to 13M before committing to an architecture.
+
+---
+
+## 12. Roadmap beyond the POC
+
+1. **Job-level (this POC):** validate individual jobs; agents + semantic search + baselines + lightweight ontology.
+2. **RO-level:** introduce the knowledge graph (Amazon Neptune) to reason across all jobs on a Repair Order — job stacking, cost aggregation, cross-job patterns.
+3. **Fleet-level:** graph + analytics for trends across units, locations, and technicians over time, feeding fleet managers' operational decisions.
+
+Each stage reuses the ontology and agent layer; the knowledge graph and GraphRAG come online when the questions become relational.
+
+---
+
+*Prepared as a POC planning document. Replace the placeholder success thresholds (X%, Y%) with figures agreed with your maintenance supervisors before kickoff.*
